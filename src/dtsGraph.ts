@@ -1,7 +1,7 @@
-import { remoteEsmVm, vmMemo } from "./cache";
-import { getJson, getText } from "./network";
-import { appendQuery, isHttpUrl, toAbsoluteCdnUrl } from "./url";
-import type { DtsGraph, NormalizedRemoteEsmTarget, RemoteEsmOptions } from "./types";
+import { remoteEsmVm, vmMemo } from "./cache.ts";
+import { getJson, getText } from "./network.ts";
+import { appendQuery, isHttpUrl, toAbsoluteCdnUrl } from "./url.ts";
+import type { DtsGraph, NormalizedRemoteEsmTarget, RemoteEsmOptions } from "./types.ts";
 
 /** Resolve a target's declaration URL from explicit options or esm.sh ?meta. */
 export async function resolveDeclarationUrl(target: NormalizedRemoteEsmTarget, options: RemoteEsmOptions = {}): Promise<string> {

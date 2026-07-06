@@ -1,4 +1,4 @@
-import type { CompletionEntry } from "./types";
+import type { CompletionEntry } from "./types.ts";
 
 /** Convert completion entries into Monaco CompletionItem objects. */
 export function toMonacoSuggestions(monaco: any, entries: CompletionEntry[], range: any): any[] {

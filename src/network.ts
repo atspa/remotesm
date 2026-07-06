@@ -1,4 +1,4 @@
-import { remoteEsmVm, vmMemo } from "./cache";
+import { remoteEsmVm, vmMemo } from "./cache.ts";
 
 /** Fetch text through Airtable remoteFetchAsync when available, otherwise fetch. */
 export async function getText(url: string): Promise<string> {

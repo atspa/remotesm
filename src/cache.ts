@@ -1,4 +1,4 @@
-import type { RemoteEsmVm } from "./types";
+import type { RemoteEsmVm } from "./types.ts";
 
 const root = globalThis as any;
 

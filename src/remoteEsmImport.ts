@@ -1,10 +1,18 @@
-import { remoteEsmVm } from "./cache";
-import { createDtsCompletionConverter } from "./converter";
-import { loadDtsGraph, resolveDeclarationUrl } from "./dtsGraph";
-import { completionsToSafeJsdoc } from "./jsdoc";
-import { importModuleCached, loadTypeScript } from "./network";
-import { normalizeRemoteEsmTarget } from "./url";
-import type { DtsCompletionConverter, RemoteEsmInput, RemoteEsmOptions, RemoteEsmResult } from "./types";
+import { remoteEsmVm } from "./cache.ts";
+import { createDtsCompletionConverter } from "./converter.ts";
+import { loadDtsGraph, resolveDeclarationUrl } from "./dtsGraph.ts";
+import { attachCompletionTypeJsdoc, completionsToSafeJsdoc } from "./jsdoc.ts";
+import type { JsdocConvertOptions } from "./jsdoc.ts";
+import { importModuleCached, loadTypeScript } from "./network.ts";
+import { normalizeRemoteEsmTarget } from "./url.ts";
+import type {
+  CompletionResult,
+  DtsCompletionConverter,
+  RemoteEsmImportMatch,
+  RemoteEsmInput,
+  RemoteEsmOptions,
+  RemoteEsmResult,
+} from "./types.ts";
 
 /**
  * Main public API. Imports a remote ESM runtime module, loads its declaration graph, converts it to
@@ -68,15 +76,19 @@ export async function remoteEsmImport(input: RemoteEsmInput, options: RemoteEsmO
       fileName: `${target.specifier || "remote"}.virtual.d.ts`,
     });
 
-    const jsdoc = completionsToSafeJsdoc(completions, {
+    const jsdocOptions: JsdocConvertOptions = {
       ...options,
       specifier: options.jsdoc?.importTypes?.specifier || target.specifier,
       includeGlobals: true,
       includeHeader,
-      unknownType,
       typeNameSuffix,
-      jsdoc: options.jsdoc,
-    });
+    };
+
+    if (unknownType !== undefined) jsdocOptions.unknownType = unknownType;
+
+    attachCompletionTypeJsdoc(completions, jsdocOptions);
+
+    const jsdoc = completionsToSafeJsdoc(completions, jsdocOptions);
 
     const result: RemoteEsmResult = {
       input,
@@ -88,6 +100,7 @@ export async function remoteEsmImport(input: RemoteEsmInput, options: RemoteEsmO
       module: moduleObject,
       dtsGraph,
       completions,
+      imports: buildRemoteEsmImportMatches(moduleObject, completions),
       jsdoc,
       memory: remoteEsmVm,
       pick(name: string, fallback?: any): any {
@@ -116,6 +129,39 @@ export async function remoteEsmImport(input: RemoteEsmInput, options: RemoteEsmO
 
 /** Backwards-compatible alias for the earlier single-file API name. */
 export const importCdnPackageWithTypes = remoteEsmImport;
+
+/** Match enumerable runtime module exports to exact global completion labels. */
+export function buildRemoteEsmImportMatches(
+  moduleObject: any,
+  completions: CompletionResult,
+): Record<string, RemoteEsmImportMatch> {
+  if (!moduleObject || (typeof moduleObject !== "object" && typeof moduleObject !== "function")) return {};
+
+  const globals = Array.isArray(completions?.byScope?.global) ? completions.byScope.global : [];
+  const types = completions?.types && typeof completions.types === "object" ? completions.types : {};
+  const matches: Record<string, RemoteEsmImportMatch> = {};
+
+  for (const key of Object.keys(moduleObject)) {
+    const entry = globals.filter((candidate) => candidate?.label === key)[0];
+    if (!entry) continue;
+
+    const type = types[entry.label];
+    const match: RemoteEsmImportMatch = {
+      key,
+      value: moduleObject[key],
+      entry,
+    };
+
+    if (type) {
+      match.type = type;
+      if (typeof type.toJsdoc === "function") match.toJsdoc = type.toJsdoc.bind(type);
+    }
+
+    matches[key] = match;
+  }
+
+  return matches;
+}
 
 /** Get or create the declaration converter. */
 export async function getDtsConverter(tsUrl: string): Promise<DtsCompletionConverter> {

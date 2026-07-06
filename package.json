@@ -9,5 +9,14 @@
   "files": [
     "index.ts",
     "src"
-  ]
+  ],
+  "devDependencies": {
+    "@opengsd/gsd-core": "^1.6.1",
+    "@types/node": "^26.1.0",
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=25"
+  }
 }

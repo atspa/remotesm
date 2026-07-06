@@ -1,4 +1,4 @@
-import type { CompletionEntry, CompletionResult, CompletionTypeRecord, DtsCompletionConverter } from "./types";
+import type { CompletionEntry, CompletionResult, CompletionTypeRecord, DtsCompletionConverter } from "./types.ts";
 
 interface ConverterState {
   flat: CompletionEntry[];
@@ -143,8 +143,8 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
     state.seen.add(key);
     state.flat.push(entry);
 
-    if (!state.byScope[entry.scope]) state.byScope[entry.scope] = [];
-    state.byScope[entry.scope].push(entry);
+    const scopeEntries = state.byScope[entry.scope] ??= [];
+    scopeEntries.push(entry);
   }
 
   function ensureTypeRecord(state: ConverterState, name: string, kind: string, detail: string): void {
@@ -163,7 +163,7 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
     if (!typeName || !memberEntry) return;
 
     ensureTypeRecord(state, typeName, "Type", "");
-    state.types[typeName].members.push({ ...memberEntry });
+    state.types[typeName]?.members.push({ ...memberEntry });
   }
 
   function handleVariableStatement(sourceFile: any, sourceText: string, node: any, scope: string, state: ConverterState): void {

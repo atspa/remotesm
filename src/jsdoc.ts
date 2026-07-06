@@ -7,8 +7,9 @@ import type {
   ParsedCallable,
   ParsedParam,
   RemoteEsmOptions,
+  RemoteEsmJsdocOptions,
   RenderContext,
-} from "./types";
+} from "./types.ts";
 
 export interface JsdocConvertOptions extends RemoteEsmOptions {
   includeGlobals?: boolean;
@@ -16,10 +17,126 @@ export interface JsdocConvertOptions extends RemoteEsmOptions {
   specifier?: string;
 }
 
+interface JsdocBuildContext {
+  flat: CompletionEntry[];
+  types: Record<string, CompletionTypeRecord>;
+  settings: NormalizedJsdocSettings;
+  originalTypeNames: Set<string>;
+  byMemberOf: Record<string, CompletionEntry[]>;
+  outTypeName(name: string): string;
+}
+
 /** Convert completion JSON into safe JSDoc typedef blocks. */
 export function completionsToSafeJsdoc(completions: CompletionResult, options: JsdocConvertOptions = {}): string {
-  const settings = normalizeJsdocSettings(options);
+  const context = createJsdocBuildContext(completions, options);
+  const typeNames = getSortedTypeNames(context);
+  const typedefDefs = buildTypedefDefinitionsForTypes(context, typeNames);
+  const importTypeDefs = buildImportTypeDefinitions(context.flat, context.originalTypeNames, context.settings);
 
+  const globalDefs = context.settings.includeGlobals
+    ? buildGlobalDefinitions(context.flat, context.originalTypeNames, {
+      settings: context.settings,
+      outTypeName: context.outTypeName,
+    })
+    : [];
+
+  return renderJsdocDefinitions([...importTypeDefs, ...typedefDefs], globalDefs, context.settings);
+}
+
+/** Convert one completion type record into safe JSDoc. */
+export function completionTypeToSafeJsdoc(
+  completions: CompletionResult,
+  typeName: string,
+  options: JsdocConvertOptions = {},
+): string {
+  const context = createJsdocBuildContext(completions, {
+    ...options,
+    includeGlobals: false,
+  });
+
+  if (!context.originalTypeNames.has(typeName)) return "";
+
+  const typedefDefs = buildTypedefDefinitionsForTypes(context, [typeName]);
+  return renderJsdocDefinitions(typedefDefs, [], context.settings);
+}
+
+/** Attach non-enumerable per-type JSDoc helpers to completion type records. */
+export function attachCompletionTypeJsdoc(completions: CompletionResult, options: JsdocConvertOptions = {}): CompletionResult {
+  const types = completions?.types && typeof completions.types === "object" ? completions.types : {};
+
+  for (const typeName of Object.keys(types)) {
+    const typeInfo = types[typeName];
+    if (!typeInfo || typeof typeInfo !== "object") continue;
+
+    Object.defineProperty(typeInfo, "toJsdoc", {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value(jsdoc?: RemoteEsmJsdocOptions): string {
+        const mergedOptions: JsdocConvertOptions = { ...options };
+        const mergedJsdoc = mergeJsdocOptions(options.jsdoc, jsdoc);
+        if (mergedJsdoc) mergedOptions.jsdoc = mergedJsdoc;
+
+        return completionTypeToSafeJsdoc(completions, typeName, mergedOptions);
+      },
+    });
+  }
+
+  return completions;
+}
+
+export function mergeJsdocOptions(
+  base?: RemoteEsmJsdocOptions,
+  override?: RemoteEsmJsdocOptions,
+): RemoteEsmJsdocOptions | undefined {
+  if (!base && !override) return undefined;
+
+  const merged: RemoteEsmJsdocOptions = {
+    ...(base || {}),
+    ...(override || {}),
+  };
+
+  if (base?.tags || override?.tags) {
+    merged.tags = {
+      ...(base?.tags || {}),
+      ...(override?.tags || {}),
+    };
+  }
+
+  if (base?.importTypes || override?.importTypes) {
+    merged.importTypes = {
+      ...(base?.importTypes || {}),
+      ...(override?.importTypes || {}),
+    };
+  }
+
+  if (
+    typeof base?.shorthand === "object" ||
+    typeof override?.shorthand === "object"
+  ) {
+    const shorthand: RemoteEsmJsdocOptions["shorthand"] = {
+      ...(typeof base?.shorthand === "object" ? base.shorthand : {}),
+      ...(typeof override?.shorthand === "object" ? override.shorthand : {}),
+    };
+
+    const baseTypes = typeof base?.shorthand === "object" ? base.shorthand.types : undefined;
+    const overrideTypes = typeof override?.shorthand === "object" ? override.shorthand.types : undefined;
+
+    if (baseTypes || overrideTypes) {
+      shorthand.types = {
+        ...(baseTypes || {}),
+        ...(overrideTypes || {}),
+      };
+    }
+
+    merged.shorthand = shorthand;
+  }
+
+  return merged;
+}
+
+function createJsdocBuildContext(completions: CompletionResult, options: JsdocConvertOptions = {}): JsdocBuildContext {
+  const settings = normalizeJsdocSettings(options);
   const flat = Array.isArray(completions?.flat) ? completions.flat : [];
   const types = completions?.types && typeof completions.types === "object" ? completions.types : {};
 
@@ -47,28 +164,44 @@ export function completionsToSafeJsdoc(completions: CompletionResult, options: J
 
   for (const entry of flat) {
     if (!entry?.memberOf) continue;
-    if (!byMemberOf[entry.memberOf]) byMemberOf[entry.memberOf] = [];
-    byMemberOf[entry.memberOf].push(entry);
+    const members = byMemberOf[entry.memberOf] ??= [];
+    members.push(entry);
   }
 
-  let typeNames = Array.from(originalTypeNames);
+  return {
+    flat,
+    types,
+    settings,
+    originalTypeNames,
+    byMemberOf,
+    outTypeName,
+  };
+}
 
-  if (settings.sort) typeNames = typeNames.sort((a, b) => a.localeCompare(b));
+function getSortedTypeNames(context: JsdocBuildContext): string[] {
+  let typeNames = Array.from(context.originalTypeNames);
 
+  if (context.settings.sort) typeNames = typeNames.sort((a, b) => a.localeCompare(b));
+
+  return typeNames;
+}
+
+function buildTypedefDefinitionsForTypes(context: JsdocBuildContext, typeNames: string[]): JsdocDefinition[] {
   const typedefDefs: JsdocDefinition[] = [];
 
   for (const typeName of typeNames) {
-    const typeInfo = types[typeName] || { kind: "", detail: "", members: [] };
-    const typeEntry = flat.find((entry) => entry.label === typeName);
+    const typeInfo = context.types[typeName] || { kind: "", detail: "", members: [] };
+    const settings = context.settings;
+    const typeEntry = context.flat.find((entry) => entry.label === typeName);
     const kind = typeEntry?.kind || typeInfo.kind || "Interface";
-    const emittedName = outTypeName(typeName);
+    const emittedName = context.outTypeName(typeName);
     const templateNames = extractTemplateNames(typeName, typeEntry, typeInfo);
 
     const ctx: RenderContext = {
       settings,
       unknownType: settings.unknownType,
-      originalTypeNames,
-      outTypeName,
+      originalTypeNames: context.originalTypeNames,
+      outTypeName: context.outTypeName,
       templateNames: new Set(templateNames),
       functionUnknownType: "any",
     };
@@ -79,20 +212,14 @@ export function completionsToSafeJsdoc(completions: CompletionResult, options: J
       kind,
       typeEntry,
       typeInfo,
-      members: byMemberOf[typeName] || [],
+      members: context.byMemberOf[typeName] || [],
       templateNames,
       ctx,
       settings,
     }));
   }
 
-  const importTypeDefs = buildImportTypeDefinitions(flat, originalTypeNames, settings);
-
-  const globalDefs = settings.includeGlobals
-    ? buildGlobalDefinitions(flat, originalTypeNames, { settings, outTypeName })
-    : [];
-
-  return renderJsdocDefinitions([...importTypeDefs, ...typedefDefs], globalDefs, settings);
+  return typedefDefs;
 }
 
 /** Normalize JSDoc output settings. */
@@ -160,8 +287,8 @@ function buildTypedefDefinition(input: {
   typeName: string;
   emittedName: string;
   kind: string;
-  typeEntry?: CompletionEntry;
-  typeInfo?: CompletionTypeRecord;
+  typeEntry: CompletionEntry | undefined;
+  typeInfo: CompletionTypeRecord | undefined;
   members: CompletionEntry[];
   templateNames: string[];
   ctx: RenderContext;
@@ -390,8 +517,10 @@ export function joinDefinitionLines(defs: JsdocDefinition[], space: string | num
   const out: string[] = [];
 
   for (let i = 0; i < defs.length; i++) {
+    const def = defs[i];
+    if (!def) continue;
     if (i > 0) out.push(...spaceToDocLines(space));
-    out.push(...defs[i].lines);
+    out.push(...def.lines);
   }
 
   return out;
@@ -592,7 +721,7 @@ export function aliasBasicType(type: string, ctx: Partial<RenderContext> = {}): 
   const aliases = ctx.settings?.shorthand?.enabled ? ctx.settings.shorthand.types : null;
   if (!aliases) return type;
   const key = String(type || "").trim();
-  return key in aliases ? aliases[key] : key;
+  return aliases[key] ?? key;
 }
 
 export function extractTemplateNames(typeName: string, typeEntry?: CompletionEntry, typeInfo?: CompletionTypeRecord): string[] {
@@ -606,7 +735,7 @@ export function extractTemplateNames(typeName: string, typeEntry?: CompletionEnt
 
   for (const pattern of patterns) {
     const match = detail.match(pattern);
-    if (!match) continue;
+    if (!match?.[1]) continue;
 
     return splitTopLevel(match[1], ",")
       .map((part) => part.replace(/\s+extends\s+[\s\S]*$/g, "").replace(/\s*=\s*[\s\S]*$/g, "").trim())

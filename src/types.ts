@@ -103,6 +103,7 @@ export interface CompletionTypeRecord {
   kind: string;
   detail: string;
   members: CompletionEntry[];
+  toJsdoc?: (jsdoc?: RemoteEsmJsdocOptions) => string;
 }
 
 export interface CompletionResult {
@@ -115,6 +116,14 @@ export interface DtsCompletionConverter {
   convertText(dtsText: string, options?: { fileName?: string }): CompletionResult;
 }
 
+export interface RemoteEsmImportMatch {
+  key: string;
+  value: any;
+  entry: CompletionEntry;
+  type?: CompletionTypeRecord;
+  toJsdoc?: (jsdoc?: RemoteEsmJsdocOptions) => string;
+}
+
 export interface RemoteEsmResult {
   input: RemoteEsmInput;
   specifier: string;
@@ -125,6 +134,7 @@ export interface RemoteEsmResult {
   module: any;
   dtsGraph: DtsGraph;
   completions: CompletionResult;
+  imports: Record<string, RemoteEsmImportMatch>;
   jsdoc: string;
   memory: RemoteEsmVm;
   pick(name: string, fallback?: any): any;
@@ -154,7 +164,7 @@ export interface NormalizedJsdocSettings {
   shorthand: { enabled: boolean; includeTypedefs: boolean; types: Record<string, string> };
   globals: RemoteEsmGlobalsMode;
   importTypes: { enabled: boolean; specifier: string; namespaceName: string; mode: RemoteEsmImportTypesMode };
-  __typeEntries?: Map<string, { typeEntry?: CompletionEntry; typeInfo?: CompletionTypeRecord }>;
+  __typeEntries?: Map<string, { typeEntry: CompletionEntry | undefined; typeInfo: CompletionTypeRecord | undefined }>;
 }
 
 export interface ParsedParam {

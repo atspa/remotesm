@@ -1,4 +1,4 @@
-import type { NormalizedRemoteEsmTarget, RemoteEsmInput, RemoteEsmOptions } from "./types";
+import type { NormalizedRemoteEsmTarget, RemoteEsmInput, RemoteEsmOptions } from "./types.ts";
 
 /** Test whether a string is an absolute HTTP(S) URL. */
 export function isHttpUrl(value: string): boolean {
