@@ -225,27 +225,26 @@ function buildTypedefDefinitionsForTypes(context: JsdocBuildContext, typeNames: 
 
 function collectReferencedTypeNames(context: JsdocBuildContext, rootTypeName: string): string[] {
   const ordered: string[] = [];
-  const queued = new Set<string>();
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
 
-  function add(typeName: string): void {
+  function visit(typeName: string): void {
     if (!context.originalTypeNames.has(typeName)) return;
-    if (queued.has(typeName)) return;
-    queued.add(typeName);
-    ordered.push(typeName);
-  }
+    if (visited.has(typeName) || visiting.has(typeName)) return;
 
-  add(rootTypeName);
-
-  for (let i = 0; i < ordered.length; i++) {
-    const current = ordered[i];
-    if (!current) continue;
-
-    const defs = buildTypedefDefinitionsForTypes(context, [current]);
+    visiting.add(typeName);
+    const defs = buildTypedefDefinitionsForTypes(context, [typeName]);
     const source = defs.flatMap((def) => def.lines).join("\n");
     const references = extractRenderedTypeReferences(source, context);
 
-    for (const reference of references) add(reference);
+    for (const reference of references) visit(reference);
+
+    visiting.delete(typeName);
+    visited.add(typeName);
+    ordered.push(typeName);
   }
+
+  visit(rootTypeName);
 
   return ordered;
 }

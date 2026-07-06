@@ -118,6 +118,7 @@ assert.ok(jsdoc.includes("@typedef WidgetT"));
 assert.ok(jsdoc.includes("@prop {WidgetOptionsT} options"));
 assert.ok(jsdoc.includes("@typedef WidgetOptionsT"));
 assert.ok(jsdoc.includes("@prop {n} retries"));
+assert.ok(jsdoc.indexOf("@typedef WidgetOptionsT") < jsdoc.indexOf("@typedef WidgetT"));
 assert.equal(jsdoc.includes("@property"), false);
 
 const moduleWithoutDefaultMatch = {
