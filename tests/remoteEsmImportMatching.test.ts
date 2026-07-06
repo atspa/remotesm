@@ -126,7 +126,9 @@ const moduleWithoutDefaultMatch = {
   Missing: {},
 };
 
-const matches = buildRemoteEsmImportMatches(moduleWithoutDefaultMatch, completions);
+const matches = buildRemoteEsmImportMatches(moduleWithoutDefaultMatch, completions, {
+  importSpecifier: "https://esm.sh/widget",
+});
 
 assert.deepEqual(Object.keys(matches), ["Widget"]);
 assert.equal(matches.Widget?.key, "Widget");
@@ -134,6 +136,24 @@ assert.equal(matches.Widget?.value, moduleWithoutDefaultMatch.Widget);
 assert.equal(matches.Widget?.entry, widgetEntry);
 assert.equal(matches.Widget?.type, completions.types.Widget);
 assert.equal(typeof matches.Widget?.toJsdoc, "function");
+assert.equal(typeof matches.Widget?.toGlobal, "function");
+assert.equal(typeof matches.Widget?.toTypedBinding, "function");
+
+const binding = matches.Widget?.toGlobal?.("O") || "";
+
+assert.ok(binding.includes("@typedef WidgetOptionsT"));
+assert.ok(binding.includes("@typedef WidgetT"));
+assert.ok(binding.includes('/** @type {typeof import("https://esm.sh/widget").Widget} */'));
+assert.ok(binding.includes("const O = module.Widget;"));
+
+const bindingWithoutTypedef = matches.Widget?.toTypedBinding?.({
+  localName: "WidgetValue",
+  moduleName: "imported",
+  includeTypedef: false,
+}) || "";
+
+assert.equal(bindingWithoutTypedef.includes("@typedef WidgetT"), false);
+assert.ok(bindingWithoutTypedef.includes("const WidgetValue = imported.Widget;"));
 
 const completionsWithoutDefault: CompletionResult = {
   ...completions,

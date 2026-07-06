@@ -116,12 +116,22 @@ export interface DtsCompletionConverter {
   convertText(dtsText: string, options?: { fileName?: string }): CompletionResult;
 }
 
+export interface RemoteEsmTypedBindingOptions {
+  localName?: string;
+  moduleName?: string;
+  importSpecifier?: string;
+  includeTypedef?: boolean;
+  jsdoc?: RemoteEsmJsdocOptions;
+}
+
 export interface RemoteEsmImportMatch {
   key: string;
   value: any;
   entry: CompletionEntry;
   type?: CompletionTypeRecord;
   toJsdoc?: (jsdoc?: RemoteEsmJsdocOptions) => string;
+  toTypedBinding?: (options?: string | RemoteEsmTypedBindingOptions) => string;
+  toGlobal?: (options?: string | RemoteEsmTypedBindingOptions) => string;
 }
 
 export interface RemoteEsmResult {

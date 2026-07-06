@@ -12,6 +12,7 @@ import type {
   RemoteEsmInput,
   RemoteEsmOptions,
   RemoteEsmResult,
+  RemoteEsmTypedBindingOptions,
 } from "./types.ts";
 
 /**
@@ -100,7 +101,9 @@ export async function remoteEsmImport(input: RemoteEsmInput, options: RemoteEsmO
       module: moduleObject,
       dtsGraph,
       completions,
-      imports: buildRemoteEsmImportMatches(moduleObject, completions),
+      imports: buildRemoteEsmImportMatches(moduleObject, completions, {
+        importSpecifier: target.runtimeUrl,
+      }),
       jsdoc,
       memory: remoteEsmVm,
       pick(name: string, fallback?: any): any {
@@ -134,6 +137,7 @@ export const importCdnPackageWithTypes = remoteEsmImport;
 export function buildRemoteEsmImportMatches(
   moduleObject: any,
   completions: CompletionResult,
+  options: Pick<RemoteEsmTypedBindingOptions, "importSpecifier" | "moduleName"> = {},
 ): Record<string, RemoteEsmImportMatch> {
   if (!moduleObject || (typeof moduleObject !== "object" && typeof moduleObject !== "function")) return {};
 
@@ -157,10 +161,91 @@ export function buildRemoteEsmImportMatches(
       if (typeof type.toJsdoc === "function") match.toJsdoc = type.toJsdoc.bind(type);
     }
 
+    match.toTypedBinding = (bindingOptions?: string | RemoteEsmTypedBindingOptions) => {
+      return remoteEsmImportMatchToTypedBinding(match, {
+        ...options,
+        ...normalizeTypedBindingOptions(bindingOptions),
+      });
+    };
+
+    match.toGlobal = match.toTypedBinding;
+
     matches[key] = match;
   }
 
   return matches;
+}
+
+/** Render a typed local binding for a matched runtime export. */
+export function remoteEsmImportMatchToTypedBinding(
+  match: RemoteEsmImportMatch,
+  options: RemoteEsmTypedBindingOptions = {},
+): string {
+  const localName = options.localName || sanitizeBindingName(match.key);
+  const moduleName = options.moduleName || "module";
+  const importSpecifier = options.importSpecifier || "";
+  const includeTypedef = options.includeTypedef !== false;
+  const out: string[] = [];
+
+  if (includeTypedef && typeof match.toJsdoc === "function") {
+    const jsdoc = match.toJsdoc(options.jsdoc);
+    if (jsdoc) out.push(jsdoc);
+  }
+
+  out.push(renderTypedBinding({
+    localName,
+    moduleName,
+    exportKey: match.key,
+    importSpecifier,
+    fallbackTypeName: match.type ? match.key : match.entry.label,
+  }));
+
+  return out.filter(Boolean).join("\n\n");
+}
+
+export function renderTypedBinding(input: {
+  localName: string;
+  moduleName: string;
+  exportKey: string;
+  importSpecifier?: string;
+  fallbackTypeName?: string;
+}): string {
+  const typeExpression = input.importSpecifier
+    ? `typeof import("${escapeJsString(input.importSpecifier)}")${exportTypeAccessor(input.exportKey)}`
+    : input.fallbackTypeName || "unknown";
+
+  return [
+    `/** @type {${typeExpression}} */`,
+    `const ${input.localName} = ${input.moduleName}${runtimePropertyAccessor(input.exportKey)};`,
+  ].join("\n");
+}
+
+export function normalizeTypedBindingOptions(options?: string | RemoteEsmTypedBindingOptions): RemoteEsmTypedBindingOptions {
+  if (typeof options === "string") return { localName: options };
+  return options || {};
+}
+
+export function sanitizeBindingName(name: string): string {
+  if (name === "default") return "defaultExport";
+  const value = String(name || "").replace(/[^\w$]/g, "_");
+  if (!value) return "value";
+  return /^\d/.test(value) ? `_${value}` : value;
+}
+
+export function exportTypeAccessor(key: string): string {
+  return isIdentifierName(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
+}
+
+export function runtimePropertyAccessor(key: string): string {
+  return isIdentifierName(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
+}
+
+export function isIdentifierName(value: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(value);
+}
+
+export function escapeJsString(value: string): string {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 }
 
 /** Get or create the declaration converter. */
