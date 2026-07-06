@@ -56,7 +56,8 @@ export function completionTypeToSafeJsdoc(
 
   if (!context.originalTypeNames.has(typeName)) return "";
 
-  const typedefDefs = buildTypedefDefinitionsForTypes(context, [typeName]);
+  const typeNames = collectReferencedTypeNames(context, typeName);
+  const typedefDefs = buildTypedefDefinitionsForTypes(context, typeNames);
   return renderJsdocDefinitions(typedefDefs, [], context.settings);
 }
 
@@ -220,6 +221,50 @@ function buildTypedefDefinitionsForTypes(context: JsdocBuildContext, typeNames: 
   }
 
   return typedefDefs;
+}
+
+function collectReferencedTypeNames(context: JsdocBuildContext, rootTypeName: string): string[] {
+  const ordered: string[] = [];
+  const queued = new Set<string>();
+
+  function add(typeName: string): void {
+    if (!context.originalTypeNames.has(typeName)) return;
+    if (queued.has(typeName)) return;
+    queued.add(typeName);
+    ordered.push(typeName);
+  }
+
+  add(rootTypeName);
+
+  for (let i = 0; i < ordered.length; i++) {
+    const current = ordered[i];
+    if (!current) continue;
+
+    const defs = buildTypedefDefinitionsForTypes(context, [current]);
+    const source = defs.flatMap((def) => def.lines).join("\n");
+    const references = extractRenderedTypeReferences(source, context);
+
+    for (const reference of references) add(reference);
+  }
+
+  return ordered;
+}
+
+function extractRenderedTypeReferences(source: string, context: JsdocBuildContext): string[] {
+  const references: string[] = [];
+  const seen = new Set<string>();
+  const candidates = getSortedTypeNames(context);
+
+  for (const typeName of candidates) {
+    const emittedName = context.outTypeName(typeName);
+    const pattern = new RegExp(`(^|[^\\w$])${escapeRegExp(emittedName)}(?=$|[^\\w$])`);
+    if (!pattern.test(source)) continue;
+    if (seen.has(typeName)) continue;
+    seen.add(typeName);
+    references.push(typeName);
+  }
+
+  return references;
 }
 
 /** Normalize JSDoc output settings. */

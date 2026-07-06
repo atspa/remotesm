@@ -21,7 +21,13 @@ function entry(partial: Partial<CompletionEntry>): CompletionEntry {
 const widgetEntry = entry({
   label: "Widget",
   kind: "Interface",
-  detail: "interface Widget { name: string; run(input: number): boolean; }",
+  detail: "interface Widget { name: string; options: WidgetOptions; run(input: number): boolean; }",
+});
+
+const widgetOptionsEntry = entry({
+  label: "WidgetOptions",
+  kind: "Interface",
+  detail: "interface WidgetOptions { retries: number; }",
 });
 
 const defaultEntry = entry({
@@ -40,6 +46,15 @@ const nameMember = entry({
   memberOf: "Widget",
 });
 
+const optionsMember = entry({
+  scope: "type:Widget",
+  label: "options",
+  kind: "Property",
+  detail: "options: WidgetOptions;",
+  type: "WidgetOptions",
+  memberOf: "Widget",
+});
+
 const runMember = entry({
   scope: "type:Widget",
   label: "run",
@@ -50,17 +65,32 @@ const runMember = entry({
   memberOf: "Widget",
 });
 
+const retriesMember = entry({
+  scope: "type:WidgetOptions",
+  label: "retries",
+  kind: "Property",
+  detail: "retries: number;",
+  type: "number",
+  memberOf: "WidgetOptions",
+});
+
 const completions: CompletionResult = {
-  flat: [widgetEntry, defaultEntry, nameMember, runMember],
+  flat: [widgetEntry, widgetOptionsEntry, defaultEntry, nameMember, optionsMember, runMember, retriesMember],
   byScope: {
-    global: [widgetEntry, defaultEntry],
-    "type:Widget": [nameMember, runMember],
+    global: [widgetEntry, widgetOptionsEntry, defaultEntry],
+    "type:Widget": [nameMember, optionsMember, runMember],
+    "type:WidgetOptions": [retriesMember],
   },
   types: {
     Widget: {
       kind: "Interface",
       detail: widgetEntry.detail,
-      members: [nameMember, runMember],
+      members: [nameMember, optionsMember, runMember],
+    },
+    WidgetOptions: {
+      kind: "Interface",
+      detail: widgetOptionsEntry.detail,
+      members: [retriesMember],
     },
   },
 };
@@ -84,7 +114,10 @@ const jsdoc = completions.types.Widget?.toJsdoc?.({
   },
 }) || "";
 
-assert.ok(jsdoc.includes("/** @typedef WidgetT @prop {s} name @prop {(input:n) => b} run */"));
+assert.ok(jsdoc.includes("@typedef WidgetT"));
+assert.ok(jsdoc.includes("@prop {WidgetOptionsT} options"));
+assert.ok(jsdoc.includes("@typedef WidgetOptionsT"));
+assert.ok(jsdoc.includes("@prop {n} retries"));
 assert.equal(jsdoc.includes("@property"), false);
 
 const moduleWithoutDefaultMatch = {
@@ -103,10 +136,11 @@ assert.equal(typeof matches.Widget?.toJsdoc, "function");
 
 const completionsWithoutDefault: CompletionResult = {
   ...completions,
-  flat: [widgetEntry, nameMember, runMember],
+  flat: [widgetEntry, widgetOptionsEntry, nameMember, optionsMember, runMember, retriesMember],
   byScope: {
-    global: [widgetEntry],
-    "type:Widget": [nameMember, runMember],
+    global: [widgetEntry, widgetOptionsEntry],
+    "type:Widget": [nameMember, optionsMember, runMember],
+    "type:WidgetOptions": [retriesMember],
   },
 };
 
