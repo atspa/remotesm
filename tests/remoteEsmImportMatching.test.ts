@@ -3,7 +3,7 @@ import { attachCompletionTypeJsdoc, buildRemoteEsmImportMatches } from "../index
 import type { CompletionEntry, CompletionResult } from "../index.ts";
 
 function entry(partial: Partial<CompletionEntry>): CompletionEntry {
-  return {
+    return {
     scope: "global",
     label: "",
     kind: "Text",
@@ -14,14 +14,15 @@ function entry(partial: Partial<CompletionEntry>): CompletionEntry {
     returnType: "",
     memberOf: "",
     exportName: "",
+    isStatic: false,
     ...partial,
   };
 }
 
 const widgetEntry = entry({
   label: "Widget",
-  kind: "Interface",
-  detail: "interface Widget { name: string; options: WidgetOptions; run(input: number): boolean; }",
+  kind: "Class",
+  detail: "class Widget { constructor(options?: WidgetOptions); name: string; options: WidgetOptions; run(input: number): boolean; }",
 });
 
 const widgetOptionsEntry = entry({
@@ -46,6 +47,15 @@ const nameMember = entry({
   memberOf: "Widget",
 });
 
+const constructorMember = entry({
+  scope: "type:Widget",
+  label: "constructor",
+  kind: "Constructor",
+  insertText: "new Widget(${1:options})",
+  detail: "constructor(options?: WidgetOptions);",
+  memberOf: "Widget",
+});
+
 const optionsMember = entry({
   scope: "type:Widget",
   label: "options",
@@ -65,6 +75,27 @@ const runMember = entry({
   memberOf: "Widget",
 });
 
+const defaultsMember = entry({
+  scope: "type:Widget",
+  label: "defaults",
+  kind: "Method",
+  insertText: "defaults(${1:options})",
+  detail: "static defaults(options: WidgetOptions): typeof Widget;",
+  returnType: "typeof Widget",
+  memberOf: "Widget",
+  isStatic: true,
+});
+
+const versionMember = entry({
+  scope: "type:Widget",
+  label: "VERSION",
+  kind: "Property",
+  detail: "static VERSION: string;",
+  type: "string",
+  memberOf: "Widget",
+  isStatic: true,
+});
+
 const retriesMember = entry({
   scope: "type:WidgetOptions",
   label: "retries",
@@ -75,17 +106,17 @@ const retriesMember = entry({
 });
 
 const completions: CompletionResult = {
-  flat: [widgetEntry, widgetOptionsEntry, defaultEntry, nameMember, optionsMember, runMember, retriesMember],
+  flat: [widgetEntry, widgetOptionsEntry, defaultEntry, constructorMember, nameMember, optionsMember, runMember, defaultsMember, versionMember, retriesMember],
   byScope: {
     global: [widgetEntry, widgetOptionsEntry, defaultEntry],
-    "type:Widget": [nameMember, optionsMember, runMember],
+    "type:Widget": [constructorMember, nameMember, optionsMember, runMember, defaultsMember, versionMember],
     "type:WidgetOptions": [retriesMember],
   },
   types: {
     Widget: {
-      kind: "Interface",
+      kind: "Class",
       detail: widgetEntry.detail,
-      members: [nameMember, optionsMember, runMember],
+      members: [constructorMember, nameMember, optionsMember, runMember, defaultsMember, versionMember],
     },
     WidgetOptions: {
       kind: "Interface",
@@ -116,6 +147,8 @@ const jsdoc = completions.types.Widget?.toJsdoc?.({
 
 assert.ok(jsdoc.includes("@typedef WidgetT"));
 assert.ok(jsdoc.includes("@prop {WidgetOptionsT} options"));
+assert.equal(jsdoc.includes(" defaults"), false);
+assert.equal(jsdoc.includes(" VERSION"), false);
 assert.ok(jsdoc.includes("@typedef WidgetOptionsT"));
 assert.ok(jsdoc.includes("@prop {n} retries"));
 assert.ok(jsdoc.indexOf("@typedef WidgetOptionsT") < jsdoc.indexOf("@typedef WidgetT"));
@@ -128,6 +161,7 @@ const moduleWithoutDefaultMatch = {
 
 const matches = buildRemoteEsmImportMatches(moduleWithoutDefaultMatch, completions, {
   importSpecifier: "https://esm.sh/widget",
+  typeNameSuffix: "T",
 });
 
 assert.deepEqual(Object.keys(matches), ["Widget"]);
@@ -143,8 +177,17 @@ const binding = matches.Widget?.toGlobal?.("O") || "";
 
 assert.ok(binding.includes("@typedef WidgetOptionsT"));
 assert.ok(binding.includes("@typedef WidgetT"));
-assert.ok(binding.includes('/** @type {typeof import("https://esm.sh/widget").Widget} */'));
+assert.ok(binding.includes("/** @type {new (options?:WidgetOptionsT) => WidgetT} */"));
+assert.equal(binding.includes("typeof import("), false);
 assert.ok(binding.includes("const O = module.Widget;"));
+
+const importBinding = matches.Widget?.toGlobal?.({
+  localName: "OI",
+  typeSource: "import",
+}) || "";
+
+assert.ok(importBinding.includes('/** @type {typeof import("https://esm.sh/widget").Widget} */'));
+assert.ok(importBinding.includes("const OI = module.Widget;"));
 
 const bindingWithoutTypedef = matches.Widget?.toTypedBinding?.({
   localName: "WidgetValue",
@@ -157,10 +200,10 @@ assert.ok(bindingWithoutTypedef.includes("const WidgetValue = imported.Widget;")
 
 const completionsWithoutDefault: CompletionResult = {
   ...completions,
-  flat: [widgetEntry, widgetOptionsEntry, nameMember, optionsMember, runMember, retriesMember],
+  flat: [widgetEntry, widgetOptionsEntry, constructorMember, nameMember, optionsMember, runMember, defaultsMember, versionMember, retriesMember],
   byScope: {
     global: [widgetEntry, widgetOptionsEntry],
-    "type:Widget": [nameMember, optionsMember, runMember],
+    "type:Widget": [constructorMember, nameMember, optionsMember, runMember, defaultsMember, versionMember],
     "type:WidgetOptions": [retriesMember],
   },
 };

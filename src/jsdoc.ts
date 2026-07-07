@@ -372,6 +372,7 @@ function buildTypedefDefinition(input: {
 
   const printableMembers = finalMembers.filter((member) => {
     if (!member?.label) return false;
+    if (kind === "Class" && member.isStatic) return false;
     if (member.label === "constructor") return false;
     if (member.label === "(call)") return false;
     if (member.label === "[index]") return false;

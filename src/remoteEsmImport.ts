@@ -1,7 +1,7 @@
 import { remoteEsmVm } from "./cache.ts";
 import { createDtsCompletionConverter } from "./converter.ts";
 import { loadDtsGraph, resolveDeclarationUrl } from "./dtsGraph.ts";
-import { attachCompletionTypeJsdoc, completionsToSafeJsdoc } from "./jsdoc.ts";
+import { attachCompletionTypeJsdoc, completionsToSafeJsdoc, parseCallableDetail } from "./jsdoc.ts";
 import type { JsdocConvertOptions } from "./jsdoc.ts";
 import { importModuleCached, loadTypeScript } from "./network.ts";
 import { normalizeRemoteEsmTarget } from "./url.ts";
@@ -103,6 +103,7 @@ export async function remoteEsmImport(input: RemoteEsmInput, options: RemoteEsmO
       completions,
       imports: buildRemoteEsmImportMatches(moduleObject, completions, {
         importSpecifier: target.runtimeUrl,
+        typeNameSuffix,
       }),
       jsdoc,
       memory: remoteEsmVm,
@@ -137,7 +138,7 @@ export const importCdnPackageWithTypes = remoteEsmImport;
 export function buildRemoteEsmImportMatches(
   moduleObject: any,
   completions: CompletionResult,
-  options: Pick<RemoteEsmTypedBindingOptions, "importSpecifier" | "moduleName"> = {},
+  options: Pick<RemoteEsmTypedBindingOptions, "importSpecifier" | "moduleName" | "typeNameSuffix" | "typeSource"> = {},
 ): Record<string, RemoteEsmImportMatch> {
   if (!moduleObject || (typeof moduleObject !== "object" && typeof moduleObject !== "function")) return {};
 
@@ -183,7 +184,6 @@ export function remoteEsmImportMatchToTypedBinding(
 ): string {
   const localName = options.localName || sanitizeBindingName(match.key);
   const moduleName = options.moduleName || "module";
-  const importSpecifier = options.importSpecifier || "";
   const includeTypedef = options.includeTypedef !== false;
   const out: string[] = [];
 
@@ -196,8 +196,7 @@ export function remoteEsmImportMatchToTypedBinding(
     localName,
     moduleName,
     exportKey: match.key,
-    importSpecifier,
-    fallbackTypeName: match.type ? match.key : match.entry.label,
+    typeExpression: getTypedBindingTypeExpression(match, options),
   }));
 
   return out.filter(Boolean).join("\n\n");
@@ -207,17 +206,79 @@ export function renderTypedBinding(input: {
   localName: string;
   moduleName: string;
   exportKey: string;
-  importSpecifier?: string;
-  fallbackTypeName?: string;
+  typeExpression: string;
 }): string {
-  const typeExpression = input.importSpecifier
-    ? `typeof import("${escapeJsString(input.importSpecifier)}")${exportTypeAccessor(input.exportKey)}`
-    : input.fallbackTypeName || "unknown";
-
   return [
-    `/** @type {${typeExpression}} */`,
+    `/** @type {${input.typeExpression}} */`,
     `const ${input.localName} = ${input.moduleName}${runtimePropertyAccessor(input.exportKey)};`,
   ].join("\n");
+}
+
+export function getTypedBindingTypeExpression(
+  match: RemoteEsmImportMatch,
+  options: RemoteEsmTypedBindingOptions = {},
+): string {
+  const localTypeName = options.typeName || getLocalExportTypeName(match, options.typeNameSuffix || "");
+  const typeSource = options.typeSource || (match.entry.kind === "Class" ? "constructor" : "local");
+
+  if (typeSource === "import" && options.importSpecifier) {
+    return `typeof import("${escapeJsString(options.importSpecifier)}")${exportTypeAccessor(match.key)}`;
+  }
+
+  if (typeSource === "constructor" && match.entry.kind === "Class") {
+    const constructorType = getConstructorTypeExpression(match, localTypeName, options.typeNameSuffix || "");
+    if (constructorType) return constructorType;
+  }
+
+  return localTypeName || match.entry.label || "unknown";
+}
+
+export function getLocalExportTypeName(match: RemoteEsmImportMatch, typeNameSuffix = ""): string {
+  const baseName = match.type ? match.entry.label : match.entry.label || match.key;
+  return `${baseName}${typeNameSuffix}`;
+}
+
+export function getConstructorTypeExpression(
+  match: RemoteEsmImportMatch,
+  instanceTypeName: string,
+  typeNameSuffix = "",
+): string {
+  const constructorEntry = match.type?.members.find((member) => member.kind === "Constructor");
+  if (!constructorEntry) return "";
+
+  const parsed = parseCallableDetail(constructorEntry.detail, "constructor");
+  const params = parsed.params.map((param, index) => {
+    const rest = param.rest || param.name.startsWith("...");
+    const name = sanitizeBindingName(param.name.replace(/^\.\.\./, "") || `arg${index + 1}`);
+    const type = toLocalParsedTypeExpression(param.type || "x", typeNameSuffix);
+    const optional = param.optional ? "?" : "";
+    return rest ? `...${name}:${type}[]` : `${name}${optional}:${type}`;
+  });
+
+  return `new (${params.join(",")}) => ${instanceTypeName}`;
+}
+
+export function toLocalParsedTypeExpression(type: string, typeNameSuffix = ""): string {
+  let value = String(type || "x").trim();
+  if (!value) return "x";
+
+  value = value.replace(/\bObject\b/g, "O")
+    .replace(/\bString\b/g, "s")
+    .replace(/\bstring\b/g, "s")
+    .replace(/\bNumber\b/g, "n")
+    .replace(/\bnumber\b/g, "n")
+    .replace(/\bBoolean\b/g, "b")
+    .replace(/\bboolean\b/g, "b")
+    .replace(/\bunknown\b/g, "X")
+    .replace(/\bany\b/g, "x");
+
+  if (!typeNameSuffix) return value;
+
+  return value.replace(/\b[A-Z][A-Za-z0-9_$]*\b/g, (name) => {
+    if (["O", "String", "Number", "Boolean", "Promise", "Array", "Date", "RegExp", "Error", "Function"].includes(name)) return name;
+    if (name.endsWith(typeNameSuffix)) return name;
+    return `${name}${typeNameSuffix}`;
+  });
 }
 
 export function normalizeTypedBindingOptions(options?: string | RemoteEsmTypedBindingOptions): RemoteEsmTypedBindingOptions {

@@ -97,6 +97,7 @@ export interface CompletionEntry {
   returnType: string;
   memberOf: string;
   exportName: string;
+  isStatic?: boolean;
 }
 
 export interface CompletionTypeRecord {
@@ -120,6 +121,9 @@ export interface RemoteEsmTypedBindingOptions {
   localName?: string;
   moduleName?: string;
   importSpecifier?: string;
+  typeName?: string;
+  typeNameSuffix?: string;
+  typeSource?: "local" | "constructor" | "import";
   includeTypedef?: boolean;
   jsdoc?: RemoteEsmJsdocOptions;
 }

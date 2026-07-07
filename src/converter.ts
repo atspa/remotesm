@@ -117,6 +117,7 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
       returnType = "",
       memberOf = "",
       exportName = "",
+      isStatic = false,
     } = entry;
 
     return {
@@ -130,6 +131,7 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
       returnType,
       memberOf,
       exportName,
+      isStatic,
     };
   }
 
@@ -200,7 +202,11 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
     }));
   }
 
-  function handlePropertyMember(sourceFile: any, sourceText: string, node: any, scope: string, state: ConverterState, ownerName: string): void {
+  function hasStaticModifier(node: any): boolean {
+    return Array.from(node?.modifiers || []).some((modifier: any) => modifier.kind === ts.SyntaxKind.StaticKeyword);
+  }
+
+  function handlePropertyMember(sourceFile: any, sourceText: string, node: any, scope: string, state: ConverterState, ownerName: string, isStatic = false): void {
     const label = nodeNameText(sourceFile, node.name);
     if (!label) return;
 
@@ -213,13 +219,14 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
       documentation: getLeadingJsDoc(sourceText, node),
       type: getTypeText(sourceFile, node.type),
       memberOf: ownerName,
+      isStatic,
     });
 
     addEntry(state, entry);
     addTypeMember(state, ownerName, entry);
   }
 
-  function handleMethodMember(sourceFile: any, sourceText: string, node: any, scope: string, state: ConverterState, ownerName: string): void {
+  function handleMethodMember(sourceFile: any, sourceText: string, node: any, scope: string, state: ConverterState, ownerName: string, isStatic = false): void {
     const label = nodeNameText(sourceFile, node.name);
     if (!label) return;
 
@@ -232,6 +239,7 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
       documentation: getLeadingJsDoc(sourceText, node),
       returnType: getReturnTypeText(sourceFile, node),
       memberOf: ownerName,
+      isStatic,
     });
 
     addEntry(state, entry);
@@ -273,13 +281,15 @@ export function createDtsCompletionConverter(ts: any): DtsCompletionConverter {
     const scope = `type:${ownerName}`;
 
     for (const member of members || []) {
+      const isStatic = hasStaticModifier(member);
+
       if (ts.isPropertySignature(member) || ts.isPropertyDeclaration(member)) {
-        handlePropertyMember(sourceFile, sourceText, member, scope, state, ownerName);
+        handlePropertyMember(sourceFile, sourceText, member, scope, state, ownerName, isStatic);
         continue;
       }
 
       if (ts.isMethodSignature(member) || ts.isMethodDeclaration(member)) {
-        handleMethodMember(sourceFile, sourceText, member, scope, state, ownerName);
+        handleMethodMember(sourceFile, sourceText, member, scope, state, ownerName, isStatic);
         continue;
       }
 
