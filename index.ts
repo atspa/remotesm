@@ -8,3 +8,4 @@ export * from "./src/network.ts";
 export * from "./src/remoteEsmImport.ts";
 export * from "./src/types.ts";
 export * from "./src/url.ts";
+export * from "./src/temp-storage/index.ts"
