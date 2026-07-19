@@ -3,9 +3,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "allowImportingTsExtensions": true,
     "allowArbitraryExtensions": true,
     "allowUnreachableCode": true,
@@ -17,19 +15,22 @@
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
     "allowSyntheticDefaultImports": true,
-    
+
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
-    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "isolatedDeclarations": true,
+    "declaration": true,
     "isolatedModules": true,
     
     "noEmit": true,
     "inlineSourceMap": true,
     "noResolve": false,
-
+    
+    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": true,
+    
     "strict": false,
   },
   "include": [
