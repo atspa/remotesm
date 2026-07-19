@@ -1,4 +1,5 @@
 import * as cache from "./cache.ts";
+import BliCache from "./bli-cache/index.ts";
 import * as converter from "./converter.ts";
 import Core from "./core/index.ts";
 import * as dtsGraph from "./dtsGraph.ts";
@@ -24,11 +25,12 @@ export * from "./temp-storage/index.ts";
 export type * from "./types.ts";
 export * from "./url.ts";
 
-const Src = { Core, RemoteEsmImport, TempStorage };
+const Src = { Core, RemoteEsmImport, TempStorage, BliCache };
 export {
   Core,
   RemoteEsmImport,
   TempStorage,
+  BliCache,
   Src,
 
   cache,
