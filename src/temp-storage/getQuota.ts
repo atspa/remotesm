@@ -5,11 +5,11 @@
 /// <reference types="typescript"/>
 
 
-export type NavStorageEstimage = StorageEstimate & { usageDetails?: Object | null }
+export type NavStorageEstimage = StorageEstimate & { usageDetails?: Object | null; };
 
-export async function getStorageQuota() {
+export async function getStorageQuota(): Promise<Record<string, unknown>> {
 
-    const results: Record<string, unknown> = {}
+    const results: Record<string, unknown> = {};
 
     if (navigator.storage?.estimate) {
         try {
@@ -65,3 +65,5 @@ export async function getStorageQuota() {
 
     return results;
 }
+
+export default getStorageQuota;

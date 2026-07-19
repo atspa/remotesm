@@ -1,7 +1,8 @@
 import * as cache from "./cache.ts";
 import BliCache from "./bli-cache/index.ts";
-import * as converter from "./converter.ts";
 import Core from "./core/index.ts";
+
+import * as converter from "./converter.ts";
 import * as dtsGraph from "./dtsGraph.ts";
 import * as jsdoc from "./jsdoc.ts";
 import * as markdown from "./markdown.ts";

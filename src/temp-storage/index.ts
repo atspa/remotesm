@@ -1,3 +1,3 @@
-import { getStorageQuota, type NavStorageEstimage } from "./getQuota.ts";
-export { getStorageQuota, type NavStorageEstimage };
-export default { getStorageQuota };
+import GetStorageQuota from "./getQuota.ts";
+export { GetStorageQuota };
+export default GetStorageQuota;
