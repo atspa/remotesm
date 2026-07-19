@@ -1,8 +1,17 @@
-import * as Core from "./core/index.ts";
-import * as RemoteEsmImport from "./remote-esm-import/index.ts";
-import * as TempStorage from "./temp-storage/index.ts";
-import * as RemotesmCache from "./cache.ts";
+import * as cache from "./cache.ts";
+import * as converter from "./converter.ts";
+import Core from "./core/index.ts";
+import * as dtsGraph from "./dtsGraph.ts";
+import * as jsdoc from "./jsdoc.ts";
+import * as markdown from "./markdown.ts";
+import * as monaco from "./monaco.ts";
+import * as network from "./network.ts";
+import RemoteEsmImport from "./remote-esm-import/index.ts";
+import TempStorage from "./temp-storage/index.ts";
+import * as types from "./types.ts";
+import * as url from "./url.ts";
 
+export * from "./cache.ts";
 export * from "./converter.ts";
 export * from "./core/index.ts";
 export * from "./dtsGraph.ts";
@@ -12,9 +21,36 @@ export * from "./monaco.ts";
 export * from "./network.ts";
 export * from "./remote-esm-import/index.ts";
 export * from "./temp-storage/index.ts";
-export * from "./types.ts";
+export type * from "./types.ts";
 export * from "./url.ts";
 
-export { Core, RemoteEsmImport, TempStorage, RemotesmCache };
+export {
+  cache,
+  converter,
+  Core,
+  dtsGraph,
+  jsdoc,
+  markdown,
+  monaco,
+  network,
+  RemoteEsmImport,
+  TempStorage,
+  types,
+  url,
+};
 
-export default { Core, RemoteEsmImport, TempStorage, RemotesmCache };
+export default {
+  cache,
+  converter,
+  Core,
+  dtsGraph,
+  jsdoc,
+  markdown,
+  monaco,
+  network,
+  RemoteEsmImport,
+  TempStorage,
+  types,
+  url,
+  $import_meta: import.meta,
+};

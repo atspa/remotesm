@@ -23,16 +23,19 @@
     "isolatedDeclarations": true,
     "declaration": true,
     "isolatedModules": true,
-    
+
     "noEmit": true,
     "inlineSourceMap": true,
     "noResolve": false,
-    
+
     "exactOptionalPropertyTypes": true,
     "strictNullChecks": true,
-    
+
     "strict": false,
+
+    "outDir": "build"
   },
+
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
@@ -40,6 +43,7 @@
     "generated/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
-    "tsdown.config.ts"
+    "tsdown.config.ts",
+    "build/**/*.ts"
   ]
 }
