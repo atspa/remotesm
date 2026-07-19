@@ -17,7 +17,7 @@
  * Requested aliases such as `zod` point to exact records such as `zod @4.2.3`.
  * The exact record stores ESM source text and expiry metadata.
  */
-export default class AutoTypings {
+export class AutoTypings {
     static sharedCache = createMemoryCache();
 
     /**
@@ -352,7 +352,7 @@ export default class AutoTypings {
 
         if (!match?.groups) {
             throw new TypeError(
-                `Invalid package reference: ${value}`,
+                `Invalid package reference: ${value} `,
             );
         }
 
@@ -369,772 +369,781 @@ export default class AutoTypings {
         };
     }
 
-  /**
-   * Resolve a package reference, path, or URL.
-   */
-  async resolve(
-    specifier,
-    parent =
-      this.projectBaseURL.href,
-  ) {
-    const key = [
-      this.mode,
-
-      this.projectBaseURL.href,
-
-      this.nodeModulesBaseURL
-        ?.href ??
-      '',
-
-      this.cdnBaseURL.href,
-
-      String(
-        this.allowCdnFallback,
-      ),
-
-      String(parent),
-      String(specifier),
-    ].join('\n');
-
-    if (
-      this.cache.resolutions
-        .has(key)
-    ) {
-      return this.cache.resolutions
-        .get(key);
-    }
-
-    const promise =
-      this.#resolveUncached(
-        String(specifier),
-        parent,
-      );
-
-    this.cache.resolutions
-      .set(
-        key,
-        promise,
-      );
-
-    try {
-      return await promise;
-    } catch (error) {
-      this.cache.resolutions
-        .delete(key);
-
-      throw error;
-    }
-  }
-
-  /**
-   * Load and recursively collect TypeScript declarations.
-   */
-  async types(
-    specifier,
-    parent =
-      this.projectBaseURL.href,
-  ) {
-    const resolved =
-      await this.resolve(
-        specifier,
-        parent,
-      );
-
-    const key =
-      resolved.typeCacheKey;
-
-    if (
-      this.cache.types
-        .has(key)
-    ) {
-      return this.cache.types
-        .get(key);
-    }
-
-    const promise =
-      this.#loadTypesUncached(
-        resolved,
-      );
-
-    this.cache.types.set(
-      key,
-      promise,
-    );
-
-    try {
-      const bundle =
-        await promise;
-
-      if (
-        this.mode ===
-        'monaco'
-      ) {
-        await this.#registerMonaco(
-          resolved,
-          bundle,
-        );
-      }
-
-      return bundle;
-    } catch (error) {
-      this.cache.types
-        .delete(key);
-
-      throw error;
-    }
-  }
-
-  /**
-   * Resolve and import a runtime module, using persistent source cache first.
-   */
-  async import(
-    specifier,
-    parent =
-      this.projectBaseURL.href,
-  ) {
-    const resolved =
-      await this.resolve(
-        specifier,
-        parent,
-      );
-
-    const memoryKey =
-      resolved.runtimeURL;
-
-    if (
-      !this.cache.modules
-        .has(memoryKey)
-    ) {
-      const promise =
-        this.#importResolvedModule(
-          resolved,
-        );
-
-      this.cache.modules.set(
-        memoryKey,
-        promise,
-      );
-
-      promise.catch(() => {
-        this.cache.modules
-          .delete(
-            memoryKey,
-          );
-      });
-    }
-
-    return this.cache.modules
-      .get(memoryKey);
-  }
-
-  /**
-   * Resolve a reference and return its runtime value and declarations.
-   */
-  async load(
-    specifier,
-    {
-      parent =
-        this.projectBaseURL.href,
-
-      value = true,
-      types = true,
-    } = {},
-  ) {
-    const resolution =
-      await this.resolve(
-        specifier,
-        parent,
-      );
-
-    const [
-      runtimeValue,
-      declarationBundle,
-    ] =
-      await Promise.all([
-        value
-          ? this.import(
-            specifier,
-            parent,
-          )
-          : undefined,
-
-        types
-          ? this.types(
-            specifier,
-            parent,
-          )
-          : undefined,
-      ]);
-
-    return {
-      resolution,
-
-      ...(
-        value
-          ? {
-            value:
-              runtimeValue,
-          }
-          : {}
-      ),
-
-      ...(
-        types
-          ? {
-            types:
-              declarationBundle,
-          }
-          : {}
-      ),
-    };
-  }
-
-  /**
-   * Read text using the injected fetch or filesystem adapter.
-   */
-  async text(
-    url,
-    {
-      optional = false,
-      cache = true,
-    } = {},
-  ) {
-    const href =
-      this.#toURL(url)
-        .href;
-
-    if (
-      cache &&
-      this.cache.text
-        .has(href)
-    ) {
-      return this.cache.text
-        .get(href);
-    }
-
-    const promise =
-      this.#readURLText(
-        href,
-        optional,
-      );
-
-    if (cache) {
-      this.cache.text.set(
-        href,
-        promise,
-      );
-    }
-
-    try {
-      return await promise;
-    } catch (error) {
-      if (cache) {
-        this.cache.text
-          .delete(href);
-      }
-
-      throw error;
-    }
-  }
-
-  /**
-   * Read and parse JSON using the injected adapters.
-   */
-  async json(
-    url,
-    options,
-  ) {
-    const href =
-      this.#toURL(url)
-        .href;
-
-    if (
-      this.cache.json
-        .has(href)
-    ) {
-      return this.cache.json
-        .get(href);
-    }
-
-    const promise =
-      this.text(
-        href,
-        options,
-      ).then(
-        text =>
-          text === undefined
-            ? undefined
-            : JSON.parse(
-              text,
-            ),
-      );
-
-    this.cache.json.set(
-      href,
-      promise,
-    );
-
-    promise.catch(() => {
-      this.cache.json
-        .delete(href);
-    });
-
-    return promise;
-  }
-
-  /**
-   * List exact persistently cached module records for the current scope.
-   */
-  async listCachedModules({
-    includeSource = false,
-    includeExpired = true,
-  } = {}) {
-    const cache =
-      await this.#openPersistentModuleCache();
-
-    if (!cache) {
-      return [];
-    }
-
-    const requests =
-      await cache.keys();
-
-    const records = [];
-
-    for (
-      const request of
-      requests
-    ) {
-      const url =
-        new this.libs.URL(
-          request.url,
-        );
-
-      if (
-        !url.pathname.includes(
-          '/modules/',
-        )
-      ) {
-        continue;
-      }
-
-      const response =
-        await cache.match(
-          request,
-        );
-
-      if (!response) {
-        continue;
-      }
-
-      try {
-        const record =
-          await response.json();
-
-        if (
-          record?.type !==
-          'module'
-        ) {
-          continue;
-        }
-
-        const expired =
-          !this.#isPersistentRecordFresh(
-            record,
-          );
-
-        if (
-          !includeExpired &&
-          expired
-        ) {
-          continue;
-        }
-
-        records.push({
-          ...record,
-
-          ...(
-            includeSource
-              ? {}
-              : {
-                source:
-                  undefined,
-              }
-          ),
-
-          expired,
-        });
-      } catch {
-        // Ignore malformed records.
-      }
-    }
-
-    return records.sort(
-      (
-        left,
-        right,
-      ) =>
-        String(
-          left.key,
-        ).localeCompare(
-          String(
-            right.key,
-          ),
-        ),
-    );
-  }
-
-  /**
-   * Get a cached module record by an alias or exact key.
-   */
-  async getCachedModule(
-    key,
-    {
-      includeExpired = false,
-    } = {},
-  ) {
-    const cache =
-      await this.#openPersistentModuleCache();
-
-    if (!cache) {
-      return undefined;
-    }
-
-    const requestedKey =
-      String(key);
-
-    const alias =
-      await this.#readPersistentRecord(
-        cache,
-        'aliases',
-        requestedKey,
-      );
-
-    const moduleKey =
-      alias?.moduleKey ??
-      requestedKey;
-
-    const record =
-      await this.#readPersistentRecord(
-        cache,
-        'modules',
-        moduleKey,
-      );
-
-    if (!record) {
-      return undefined;
-    }
-
-    if (
-      !includeExpired &&
-      !this.#isPersistentRecordFresh(
-        record,
-      )
-    ) {
-      return undefined;
-    }
-
-    return record;
-  }
-
-  /**
-   * Delete an exact module record and every alias that points to it.
-   */
-  async deleteCachedModule(
-    key,
-  ) {
-    const cache =
-      await this.#openPersistentModuleCache();
-
-    if (!cache) {
-      return false;
-    }
-
-    const suppliedKey =
-      String(key);
-
-    const alias =
-      await this.#readPersistentRecord(
-        cache,
-        'aliases',
-        suppliedKey,
-      );
-
-    const moduleKey =
-      alias?.moduleKey ??
-      suppliedKey;
-
-    let deleted =
-      await cache.delete(
-        this.#persistentRecordURL(
-          'modules',
-          moduleKey,
-        ),
-      );
-
-    deleted =
-      (
-        await cache.delete(
-          this.#persistentRecordURL(
-            'aliases',
-            suppliedKey,
-          ),
-        )
-      ) || deleted;
-
-    for (
-      const request of
-      await cache.keys()
-    ) {
-      const url =
-        new this.libs.URL(
-          request.url,
-        );
-
-      if (
-        !url.pathname.includes(
-          '/aliases/',
-        )
-      ) {
-        continue;
-      }
-
-      const response =
-        await cache.match(
-          request,
-        );
-
-      if (!response) {
-        continue;
-      }
-
-      try {
-        const candidate =
-          await response.json();
-
-        if (
-          candidate?.moduleKey ===
-          moduleKey
-        ) {
-          deleted =
-            (
-              await cache.delete(
-                request,
-              )
-            ) || deleted;
-        }
-      } catch {
-        // Ignore malformed aliases.
-      }
-    }
-
-    /*
-     * A deleted persistent source may back any resolved alias in memory.
+    /**
+     * Resolve a package reference, path, or URL.
      */
-    this.cache.modules.clear();
-
-    return deleted;
-  }
-
-  /**
-   * Clear only in-memory caches for the current runtime.
-   */
-  clearMemoryCache() {
-    for (
-      const map of
-      Object.values(
-        this.cache,
-      )
+    async resolve(
+        specifier,
+        parent =
+            this.projectBaseURL.href,
     ) {
-      map.clear();
+        const key = [
+            this.mode,
+
+            this.projectBaseURL.href,
+
+            this.nodeModulesBaseURL
+                ?.href ??
+            '',
+
+            this.cdnBaseURL.href,
+
+            String(
+                this.allowCdnFallback,
+            ),
+
+            String(parent),
+            String(specifier),
+        ].join('\n');
+
+        if (
+            this.cache.resolutions
+                .has(key)
+        ) {
+            return this.cache.resolutions
+                .get(key);
+        }
+
+        const promise =
+            this.#resolveUncached(
+                String(specifier),
+                parent,
+            );
+
+        this.cache.resolutions
+            .set(
+                key,
+                promise,
+            );
+
+        try {
+            return await promise;
+        } catch (error) {
+            this.cache.resolutions
+                .delete(key);
+
+            throw error;
+        }
     }
-  }
 
-  /**
-   * Delete the persistent Cache Storage cache for the current scope.
-   */
-  async clearPersistentCache() {
-    if (
-      !this.persistentModuleCache
+    /**
+     * Load and recursively collect TypeScript declarations.
+     */
+    async types(
+        specifier,
+        parent =
+            this.projectBaseURL.href,
     ) {
-      return false;
+        const resolved =
+            await this.resolve(
+                specifier,
+                parent,
+            );
+
+        const key =
+            resolved.typeCacheKey;
+
+        if (
+            this.cache.types
+                .has(key)
+        ) {
+            return this.cache.types
+                .get(key);
+        }
+
+        const promise =
+            this.#loadTypesUncached(
+                resolved,
+            );
+
+        this.cache.types.set(
+            key,
+            promise,
+        );
+
+        try {
+            const bundle =
+                await promise;
+
+            if (
+                this.mode ===
+                'monaco'
+            ) {
+                await this.#registerMonaco(
+                    resolved,
+                    bundle,
+                );
+            }
+
+            return bundle;
+        } catch (error) {
+            this.cache.types
+                .delete(key);
+
+            throw error;
+        }
     }
 
-    const {
-      storage,
-      cacheName,
-    } =
-      this.persistentModuleCache;
-
-    this.persistentModuleCache
-      .promise =
-      null;
-
-    return storage.delete(
-      cacheName,
-    );
-  }
-
-  /**
-   * Clear memory and, by default, persistent state.
-   */
-  async clearCache({
-    persistent = true,
-  } = {}) {
-    this.clearMemoryCache();
-
-    return persistent
-      ? this.clearPersistentCache()
-      : true;
-  }
-
-  async dispose() {
-    for (
-      const pending of
-      this.monacoLoaders
-        .values()
+    /**
+     * Resolve and import a runtime module, using persistent source cache first.
+     */
+    async import(
+        specifier,
+        parent =
+            this.projectBaseURL.href,
     ) {
-      try {
-        const result =
-          await pending;
+        const resolved =
+            await this.resolve(
+                specifier,
+                parent,
+            );
 
-        result?.loader
-          ?.dispose?.();
+        const memoryKey =
+            resolved.runtimeURL;
 
-        result?.model
-          ?.dispose?.();
-      } catch {
+        if (
+            !this.cache.modules
+                .has(memoryKey)
+        ) {
+            const promise =
+                this.#importResolvedModule(
+                    resolved,
+                );
+
+            this.cache.modules.set(
+                memoryKey,
+                promise,
+            );
+
+            promise.catch(() => {
+                this.cache.modules
+                    .delete(
+                        memoryKey,
+                    );
+            });
+        }
+
+        return this.cache.modules
+            .get(memoryKey);
+    }
+
+    /**
+     * Resolve a reference and return its runtime value and declarations.
+     */
+    async load(
+        specifier,
+        {
+            parent =
+            this.projectBaseURL.href,
+
+            value = true,
+            types = true,
+        } = {},
+    ) {
+        const resolution =
+            await this.resolve(
+                specifier,
+                parent,
+            );
+
+        const [
+            runtimeValue,
+            declarationBundle,
+        ] =
+            await Promise.all([
+                value
+                    ? this.import(
+                        specifier,
+                        parent,
+                    )
+                    : undefined,
+
+                types
+                    ? this.types(
+                        specifier,
+                        parent,
+                    )
+                    : undefined,
+            ]);
+
+        return {
+            resolution,
+
+            ...(
+                value
+                    ? {
+                        value:
+                            runtimeValue,
+                    }
+                    : {}
+            ),
+
+            ...(
+                types
+                    ? {
+                        types:
+                            declarationBundle,
+                    }
+                    : {}
+            ),
+        };
+    }
+
+    /**
+     * Read text using the injected fetch or filesystem adapter.
+     */
+    async text(
+        url,
+        {
+            optional = false,
+            cache = true,
+        } = {},
+    ) {
+        const href =
+            this.#toURL(url)
+                .href;
+
+        if (
+            cache &&
+            this.cache.text
+                .has(href)
+        ) {
+            return this.cache.text
+                .get(href);
+        }
+
+        const promise =
+            this.#readURLText(
+                href,
+                optional,
+            );
+
+        if (cache) {
+            this.cache.text.set(
+                href,
+                promise,
+            );
+        }
+
+        try {
+            return await promise;
+        } catch (error) {
+            if (cache) {
+                this.cache.text
+                    .delete(href);
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Read and parse JSON using the injected adapters.
+     */
+    async json(
+        url,
+        options,
+    ) {
+        const href =
+            this.#toURL(url)
+                .href;
+
+        if (
+            this.cache.json
+                .has(href)
+        ) {
+            return this.cache.json
+                .get(href);
+        }
+
+        const promise =
+            this.text(
+                href,
+                options,
+            ).then(
+                text =>
+                    text === undefined
+                        ? undefined
+                        : JSON.parse(
+                            text,
+                        ),
+            );
+
+        this.cache.json.set(
+            href,
+            promise,
+        );
+
+        promise.catch(() => {
+            this.cache.json
+                .delete(href);
+        });
+
+        return promise;
+    }
+
+    /**
+     * List exact persistently cached module records for the current scope.
+     */
+    async listCachedModules({
+        includeSource = false,
+        includeExpired = true,
+    } = {}) {
+        const cache =
+            await this.#openPersistentModuleCache();
+
+        if (!cache) {
+            return [];
+        }
+
+        const requests =
+            await cache.keys();
+
+        const records = [];
+
+        for (
+            const request of
+            requests
+        ) {
+            const url =
+                new this.libs.URL(
+                    request.url,
+                );
+
+            if (
+                !url.pathname.includes(
+                    '/modules/',
+                )
+            ) {
+                continue;
+            }
+
+            const response =
+                await cache.match(
+                    request,
+                );
+
+            if (!response) {
+                continue;
+            }
+
+            try {
+                const record =
+                    await response.json();
+
+                if (
+                    record?.type !==
+                    'module'
+                ) {
+                    continue;
+                }
+
+                const expired =
+                    !this.#isPersistentRecordFresh(
+                        record,
+                    );
+
+                if (
+                    !includeExpired &&
+                    expired
+                ) {
+                    continue;
+                }
+
+                records.push({
+                    ...record,
+
+                    ...(
+                        includeSource
+                            ? {}
+                            : {
+                                source:
+                                    undefined,
+                            }
+                    ),
+
+                    expired,
+                });
+            } catch {
+                // Ignore malformed records.
+            }
+        }
+
+        return records.sort(
+            (
+                left,
+                right,
+            ) =>
+                String(
+                    left.key,
+                ).localeCompare(
+                    String(
+                        right.key,
+                    ),
+                ),
+        );
+    }
+
+    /**
+     * Get a cached module record by an alias or exact key.
+     */
+    async getCachedModule(
+        key,
+        {
+            includeExpired = false,
+        } = {},
+    ) {
+        const cache =
+            await this.#openPersistentModuleCache();
+
+        if (!cache) {
+            return undefined;
+        }
+
+        const requestedKey =
+            String(key);
+
+        const alias =
+            await this.#readPersistentRecord(
+                cache,
+                'aliases',
+                requestedKey,
+            );
+
+        const moduleKey =
+            alias?.moduleKey ??
+            requestedKey;
+
+        const record =
+            await this.#readPersistentRecord(
+                cache,
+                'modules',
+                moduleKey,
+            );
+
+        if (!record) {
+            return undefined;
+        }
+
+        if (
+            !includeExpired &&
+            !this.#isPersistentRecordFresh(
+                record,
+            )
+        ) {
+            return undefined;
+        }
+
+        return record;
+    }
+
+    /**
+     * Delete an exact module record and every alias that points to it.
+     */
+    async deleteCachedModule(
+        key,
+    ) {
+        const cache =
+            await this.#openPersistentModuleCache();
+
+        if (!cache) {
+            return false;
+        }
+
+        const suppliedKey =
+            String(key);
+
+        const alias =
+            await this.#readPersistentRecord(
+                cache,
+                'aliases',
+                suppliedKey,
+            );
+
+        const moduleKey =
+            alias?.moduleKey ??
+            suppliedKey;
+
+        let deleted =
+            await cache.delete(
+                this.#persistentRecordURL(
+                    'modules',
+                    moduleKey,
+                ),
+            );
+
+        deleted =
+            (
+                await cache.delete(
+                    this.#persistentRecordURL(
+                        'aliases',
+                        suppliedKey,
+                    ),
+                )
+            ) || deleted;
+
+        for (
+            const request of
+            await cache.keys()
+        ) {
+            const url =
+                new this.libs.URL(
+                    request.url,
+                );
+
+            if (
+                !url.pathname.includes(
+                    '/aliases/',
+                )
+            ) {
+                continue;
+            }
+
+            const response =
+                await cache.match(
+                    request,
+                );
+
+            if (!response) {
+                continue;
+            }
+
+            try {
+                const candidate =
+                    await response.json();
+
+                if (
+                    candidate?.moduleKey ===
+                    moduleKey
+                ) {
+                    deleted =
+                        (
+                            await cache.delete(
+                                request,
+                            )
+                        ) || deleted;
+                }
+            } catch {
+                // Ignore malformed aliases.
+            }
+        }
+
         /*
-         * A failed loader has no reliable
-         * resources to dispose.
+         * A deleted persistent source may back any resolved alias in memory.
          */
-      }
+        this.cache.modules.clear();
+
+        return deleted;
     }
 
-    for (
-      const model of
-      new Set(
+    /**
+     * Clear only in-memory caches for the current runtime.
+     */
+    clearMemoryCache() {
+        for (
+            const map of
+            Object.values(
+                this.cache,
+            )
+        ) {
+            map.clear();
+        }
+    }
+
+    /**
+     * Delete the persistent Cache Storage cache for the current scope.
+     */
+    async clearPersistentCache() {
+        if (
+            !this.persistentModuleCache
+        ) {
+            return false;
+        }
+
+        const {
+            storage,
+            cacheName,
+        } =
+            this.persistentModuleCache;
+
+        this.persistentModuleCache
+            .promise =
+            null;
+
+        return storage.delete(
+            cacheName,
+        );
+    }
+
+    /**
+     * Clear memory and, by default, persistent state.
+     */
+    async clearCache({
+        persistent = true,
+    } = {}) {
+        this.clearMemoryCache();
+
+        return persistent
+            ? this.clearPersistentCache()
+            : true;
+    }
+
+    async dispose() {
+        for (
+            const pending of
+            this.monacoLoaders
+                .values()
+        ) {
+            try {
+                const result =
+                    await pending;
+
+                result?.loader
+                    ?.dispose?.();
+
+                result?.model
+                    ?.dispose?.();
+            } catch {
+                /*
+                 * A failed loader has no reliable
+                 * resources to dispose.
+                 */
+            }
+        }
+
+        for (
+            const model of
+            new Set(
+                this.monacoModels
+                    .values(),
+            )
+        ) {
+            if (
+                model !==
+                this.libs.editor
+                    ?.getModel?.()
+            ) {
+                model.dispose?.();
+            }
+        }
+
+        this.monacoLoaders
+            .clear();
+
         this.monacoModels
-          .values(),
-      )
-    ) {
-      if (
-        model !==
-        this.libs.editor
-          ?.getModel?.()
-      ) {
-        model.dispose?.();
-      }
+            .clear();
     }
 
-    this.monacoLoaders
-      .clear();
-
-    this.monacoModels
-      .clear();
-  }
-
-  async #importResolvedModule(
-    resolved,
-  ) {
-    if (
-      !this.persistentModuleCache ||
-      !/^https?:/.test(
-        resolved.runtimeURL,
-      ) ||
-      !this.libs.fetch
-    ) {
-      return this.libs.importModule(
-        resolved.runtimeURL,
-      );
-    }
-
-    const requestedKey =
-      this.#requestedModuleCacheKey(
+    async #importResolvedModule(
         resolved,
-      );
-
-    let cachedRecord;
-
-    try {
-      cachedRecord =
-        await this.#getFreshPersistentModule(
-          requestedKey,
-        );
-    } catch (error) {
-      this.onError?.(
-        error,
-      );
-    }
-
-    if (cachedRecord) {
-      try {
-        return await this.#importCachedModuleSource(
-          cachedRecord,
-        );
-      } catch (error) {
-        this.onError?.(
-          error,
-        );
-
-        await this.deleteCachedModule(
-          cachedRecord.key,
-        ).catch(
-          () => {},
-        );
-      }
-    }
-
-    try {
-      const freshRecord =
-        await this.#fetchAndPersistModule(
-          resolved,
-          requestedKey,
-        );
-
-      return await this.#importCachedModuleSource(
-        freshRecord,
-      );
-    } catch (error) {
-      this.onError?.(
-        error,
-      );
-
-      return this.libs.importModule(
-        resolved.runtimeURL,
-      );
-    }
-  }
-
-  async #openPersistentModuleCache() {
-    if (
-      !this.persistentModuleCache
     ) {
-      return null;
+        if (
+            !this.persistentModuleCache ||
+            !/^https?:/.test(
+                resolved.runtimeURL,
+            ) ||
+            !this.libs.fetch
+        ) {
+            return this.libs.importModule(
+                resolved.runtimeURL,
+            );
+        }
+
+        const requestedKey =
+            this.#requestedModuleCacheKey(
+                resolved,
+            );
+
+        let cachedRecord;
+
+        try {
+            cachedRecord =
+                await this.#getFreshPersistentModule(
+                    requestedKey,
+                );
+        } catch (error) {
+            this.onError?.(
+                error,
+            );
+        }
+
+        if (cachedRecord) {
+            try {
+                return await this.#importCachedModuleSource(
+                    cachedRecord,
+                );
+            } catch (error) {
+                this.onError?.(
+                    error,
+                );
+
+                await this.deleteCachedModule(
+                    cachedRecord.key,
+                ).catch(
+                    () => { },
+                );
+            }
+        }
+
+        try {
+            const freshRecord =
+                await this.#fetchAndPersistModule(
+                    resolved,
+                    requestedKey,
+                );
+
+            return await this.#importCachedModuleSource(
+                freshRecord,
+            );
+        } catch (error) {
+            this.onError?.(
+                error,
+            );
+
+            return this.libs.importModule(
+                resolved.runtimeURL,
+            );
+        }
     }
 
-    const config =
-      this.persistentModuleCache;
+    async #openPersistentModuleCache() {
+        if (
+            !this.persistentModuleCache
+        ) {
+            return null;
+        }
 
-    config.promise ??=
-      config.storage.open(
-        config.cacheName,
-      );
+        const config =
+            this.persistentModuleCache;
 
-    return config.promise;
-  }
+        config.promise ??=
+            config.storage.open(
+                config.cacheName,
+            );
 
-  #persistentRecordURL(
-    kind,
+        return config.promise;
+    }
+
+    #persistentRecordURL(
+        kind,
+        key,
+    ) {
+        const scope =
+            this.persistentModuleCache
+                ?.scope ??
+            'default';
+
+        return new this.libs.URL(
+            `${encodeURIComponent(
+                scope,
+            );
+    }/${;
+kind;
+    }/${;
+encodeURIComponent(
     key,
-  ) {
-    const scope =
-      this.persistentModuleCache
-        ?.scope ??
-      'default';
-
-    return new this.libs.URL(
-      `${encodeURIComponent(scope)}/${kind}/${encodeURIComponent(key)}`,
+)
+      }`,
       'https://auto-typings.invalid/',
     ).href;
   }
@@ -1316,9 +1325,7 @@ export default class AutoTypings {
 
     if (!response?.ok) {
       throw new Error(
-        `Failed to fetch cacheable module ${sourceRequestURL}: ${
-          response?.status ?? 'unknown'
-        } ${response?.statusText ?? ''}`.trim(),
+        `Failed to fetch cacheable module $ { sourceRequestURL ?? response?.status ?? 'unknown' } ${ response?.statusText ?? '' } `.trim(),
       );
     }
 
@@ -1447,9 +1454,21 @@ export default class AutoTypings {
     } =
       resolved.packageRef;
 
-    return `${name}${version ? `@${version}` : ''}${
-      subpath ? `/${subpath}` : ''
-    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
+    return `${
+    name;
+}${
+    version
+        ? `@${version}`
+        : '';
+}${
+    subpath
+        ? `/${subpath}`
+        : '';
+}${
+    this.#meaningfulRuntimeQuery(
+        resolved.runtimeURL,
+    );
+} `;
   }
 
   #exactModuleCacheKey(
@@ -1469,9 +1488,21 @@ export default class AutoTypings {
     } =
       resolved.packageRef;
 
-    return `${name} @${exactVersion ?? version ?? 'latest'}${
-      subpath ? `/${subpath}` : ''
-    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
+    return `${
+    name;
+} @${
+    exactVersion ??
+        version ??
+        'latest';
+}${
+    subpath
+        ? `/${subpath}`
+        : '';
+}${
+    this.#meaningfulRuntimeQuery(
+        resolved.runtimeURL,
+    );
+} `;
   }
 
   #meaningfulRuntimeQuery(
@@ -1528,7 +1559,7 @@ export default class AutoTypings {
       );
     }
 
-    return `?${params}`;
+    return `${ params } `;
   }
 
   #cacheableModuleSourceURL(
@@ -1612,7 +1643,11 @@ export default class AutoTypings {
     const match =
       candidates.match(
         new RegExp(
-          `${escapedName} @(${SEMVER_SOURCE})`,
+          `${
+    escapedName;
+} @(${
+    SEMVER_SOURCE;
+})`,
           'i',
         ),
       );
@@ -1635,7 +1670,11 @@ export default class AutoTypings {
       );
 
     const annotatedSource =
-      `${rewrittenSource}\n;//# sourceURL=${record.sourceURL}\n`;
+      `${
+    rewrittenSource;
+} \n;//# sourceURL=${
+record.sourceURL
+      }\n`;
 
     const BlobImpl =
       this.persistentModuleCache
@@ -1682,7 +1721,11 @@ export default class AutoTypings {
     }
 
     const dataURL =
-      `data:text/javascript;charset=utf-8,${encodeURIComponent(annotatedSource)}`;
+      `data: text / javascript; charset = utf - 8, ${
+    encodeURIComponent(
+        annotatedSource,
+    );
+} `;
 
     try {
       return await this.libs.importModule(
@@ -1753,9 +1796,8 @@ export default class AutoTypings {
       const directory =
         /[\\/]$/.test(
           source,
-        )
-          ? source
-          : `${source}${separator}`;
+        
+          `${ source ? source : separator } `);
 
       return this.#fileURLFromPath(
         directory,
@@ -2024,7 +2066,13 @@ export default class AutoTypings {
     ) {
       const error =
         new Error(
-          `Cannot find package ${JSON.stringify(packageRef.name)} from ${parentURL.href}`,
+          `Cannot find package ${
+    JSON.stringify(
+        packageRef.name,
+    );
+} from ${
+    parentURL.href;
+} `,
         );
 
       error.code =
@@ -2060,9 +2108,21 @@ export default class AutoTypings {
   ) {
     const packageKey =
       data.packageRef
-        ? `${data.packageRef.name} @${
-          data.packageRef.version ?? data.installedVersion ?? '*'
-        }${data.packageRef.subpath ? `/${data.packageRef.subpath}` : ''}`
+        ? `${
+    data.packageRef.name;
+} @${
+    data.packageRef
+        .version ??
+        data.installedVersion ??
+        '*';
+}${
+    data.packageRef
+        .subpath
+        ? `/${data.packageRef
+            .subpath
+        }`
+        : '';
+} `
         : data.runtimeURL;
 
     return Object.freeze({
@@ -2106,15 +2166,15 @@ export default class AutoTypings {
     ) {
       const packageRoot =
         new this.libs.URL(
-          `${ref.name}/`,
-          nodeModulesRoot,
+          `${ ref.name }/`,;
+nodeModulesRoot,
         );
 
-      const packageJsonURL =
-        new this.libs.URL(
-          'package.json',
-          packageRoot,
-        );
+const packageJsonURL =
+    new this.libs.URL(
+        'package.json',
+        packageRoot,
+    );
 
 const packageJson =
     await this.json(
@@ -4914,3 +4974,5 @@ function addModuleDependency(
         value,
     );
 }
+
+export default { AutoTypings }
