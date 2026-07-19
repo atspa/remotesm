@@ -11,6 +11,7 @@
     "resolveJsonModule": true,
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
+    "allowSyntheticDefaultImports": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "strict": true,

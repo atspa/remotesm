@@ -5,9 +5,9 @@
 ## Main API
 
 ```ts
-import { remoteEsmImport, markdownCodeBlock } from "./index.ts";
+import { RemoteEsmImport, markdownCodeBlock } from "./index.ts";
 
-const octo = await remoteEsmImport("@octokit/core@7.0.6", {
+const octo = await RemoteEsmImport("@octokit/core@7.0.6", {
   typeNameSuffix: "T",
   unknownType: "unknown",
   maxDepth: 2,
@@ -42,14 +42,14 @@ console.info(Reflect.ownKeys(Octokit));
 ## Supported inputs
 
 ```ts
-await remoteEsmImport("zod");
-await remoteEsmImport("zod@4.4.3");
-await remoteEsmImport("@octokit/core");
-await remoteEsmImport("@octokit/core@7.0.6");
-await remoteEsmImport("github:user/repo#commit");
-await remoteEsmImport("gh:user/repo#commit");
-await remoteEsmImport("https://esm.sh/@octokit/core@7.0.6");
-await remoteEsmImport({ runtimeUrl: "https://esm.sh/pkg", dtsUrl: "https://example.com/pkg.d.ts", specifier: "pkg" });
+await RemoteEsmImport("zod");
+await RemoteEsmImport("zod@4.4.3");
+await RemoteEsmImport("@octokit/core");
+await RemoteEsmImport("@octokit/core@7.0.6");
+await RemoteEsmImport("github:user/repo#commit");
+await RemoteEsmImport("gh:user/repo#commit");
+await RemoteEsmImport("https://esm.sh/@octokit/core@7.0.6");
+await RemoteEsmImport({ runtimeUrl: "https://esm.sh/pkg", dtsUrl: "https://example.com/pkg.d.ts", specifier: "pkg" });
 ```
 
 ## Notes

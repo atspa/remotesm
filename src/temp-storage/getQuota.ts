@@ -24,7 +24,7 @@ export async function getStorageQuota() {
                 quotaMiB: quota / 1024 ** 2,
                 availableMiB:
                     (quota - usage) / 1024 ** 2,
-                availableGiB: Number(((quota - usage) / 1024 ** 2 / 10240).toPrecision(2)),
+                availableGiB: (quota - usage) / 1024 ** 2 / 10240,
 
                 usageDetails: estimate.usageDetails ?? null,
             };
@@ -48,7 +48,7 @@ export async function getStorageQuota() {
                                 usageMiB: usage / 1024 ** 2,
                                 quotaMiB: quota / 1024 ** 2,
                                 availableMiB: (quota - usage) / 1024 ** 2,
-                                availableGiB: (quota - usage) / 1024 ** 2 / 10240,
+                                availableGiB: (quota - usage) / 1024 ** 2 / 10240
                             });
                         },
                         reject,

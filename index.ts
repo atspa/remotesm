@@ -1,11 +1,2 @@
-export * from "./src/cache.ts";
-export * from "./src/converter.ts";
-export * from "./src/dtsGraph.ts";
-export * from "./src/jsdoc.ts";
-export * from "./src/markdown.ts";
-export * from "./src/monaco.ts";
-export * from "./src/network.ts";
-export * from "./src/remoteEsmImport.ts";
-export * from "./src/types.ts";
-export * from "./src/url.ts";
-export * from "./src/temp-storage/index.ts"
+export { default } from "./src/index.ts";
+export * from "./src/index.ts";
