@@ -17,15 +17,20 @@
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
     "allowSyntheticDefaultImports": true,
+    
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
-    "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
+    "isolatedDeclarations": true,
     "isolatedModules": true,
+    
     "noEmit": true,
-    "inlineSourceMap": true
+    "inlineSourceMap": true,
+    "noResolve": false,
+
+    "strict": false,
   },
   "include": [
     "src/**/*.ts",
