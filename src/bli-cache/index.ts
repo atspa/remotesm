@@ -150,225 +150,224 @@ export default class AutoTypings {
             ].includes(mode)
         ) {
             throw new TypeError(
-                `Unsupported mode: ${mode;
-        } `,
-      );
-    }
-
-    this.mode = mode;
-
-    this.libs = {
-      fetch: fetchImpl,
-      importModule,
-      URL: URLImpl,
-      Response: ResponseImpl,
-      Blob: BlobImpl,
-      cacheStorage,
-      readTextFile,
-      pathToFileURL,
-      cwd,
-      console: consoleImpl,
-      monaco,
-      MonacoAutoTypings,
-      editor,
-    };
-
-    this.cache =
-      normalizeMemoryCache(cache);
-
-    this.maxTypeDepth =
-      toPositiveInteger(
-        maxTypeDepth,
-        'maxTypeDepth',
-      );
-
-    this.maxTypeFiles =
-      toPositiveInteger(
-        maxTypeFiles,
-        'maxTypeFiles',
-      );
-
-    this.typeConcurrency =
-      toPositiveInteger(
-        typeConcurrency,
-        'typeConcurrency',
-      );
-
-    this.onError =
-      onError ??
-      (error => {
-        consoleImpl?.error?.(
-          error,
-        );
-      });
-
-    this.projectBaseURL =
-      this.#normalizeBaseURL(
-        projectBaseURL,
-      );
-
-    this.cdnBaseURL =
-      new URLImpl(
-        String(cdnBaseURL),
-        this.projectBaseURL,
-      );
-
-    this.packageFilesBaseURL =
-      new URLImpl(
-        String(
-          packageFilesBaseURL,
-        ),
-        this.projectBaseURL,
-      );
-
-    this.allowCdnFallback =
-      mode ===
-      'standaloneScript'
-        ? true
-        : (
-          allowCdnFallback ??
-          mode !== 'nodenext'
-        );
-
-    if (
-      mode ===
-      'standaloneScript'
-    ) {
-      this.nodeModulesBaseURL =
-        null;
-    } else if (
-      nodeModulesBaseURL ===
-      null
-    ) {
-      this.nodeModulesBaseURL =
-        null;
-    } else {
-      this.nodeModulesBaseURL =
-        new URLImpl(
-          String(
-            nodeModulesBaseURL ??
-            './node_modules/',
-          ),
-          this.#asDirectoryURL(
-            this.projectBaseURL,
-          ),
-        );
-    }
-
-    this.cacheCycleLength =
-      normalizeCacheCycleLength(
-        cacheCycleLength,
-      );
-
-    this.cacheCycleMilliseconds =
-      cacheCycleToMilliseconds(
-        this.cacheCycleLength,
-      );
-
-    const detectedScope =
-      cacheScope ??
-      detectCurrentBaseId();
-
-    this.persistentModuleCache =
-      (
-        persistentModuleCache &&
-        detectedScope &&
-        cacheStorage &&
-        ResponseImpl
-      )
-        ? {
-          scope:
-            String(
-              detectedScope,
-            ),
-
-          cacheName:
-            `${ moduleCacheName; }:${ detectedScope; } `,
-
-          storage:
-            cacheStorage,
-
-          Response:
-            ResponseImpl,
-
-          Blob:
-            BlobImpl,
-
-          promise:
-            null,
+                `Unsupported mode: ${mode} `
+            );
         }
-        : null;
 
-    this.monacoOptions = {
-      fileRoot:
-        monacoFileRoot,
+        this.mode = mode;
 
-      sourceCache:
-        monacoSourceCache,
+        this.libs = {
+            fetch: fetchImpl,
+            importModule,
+            URL: URLImpl,
+            Response: ResponseImpl,
+            Blob: BlobImpl,
+            cacheStorage,
+            readTextFile,
+            pathToFileURL,
+            cwd,
+            console: consoleImpl,
+            monaco,
+            MonacoAutoTypings,
+            editor,
+        };
 
-      sourceResolver:
-        monacoSourceResolver,
-    };
+        this.cache =
+            normalizeMemoryCache(cache);
 
-    this.monacoLoaders =
-      new Map();
+        this.maxTypeDepth =
+            toPositiveInteger(
+                maxTypeDepth,
+                'maxTypeDepth',
+            );
 
-    this.monacoModels =
-      new Map();
+        this.maxTypeFiles =
+            toPositiveInteger(
+                maxTypeFiles,
+                'maxTypeFiles',
+            );
 
-    this.monacoAliases =
-      Object.create(null);
+        this.typeConcurrency =
+            toPositiveInteger(
+                typeConcurrency,
+                'typeConcurrency',
+            );
 
-    if (
-      mode === 'monaco' &&
-      (
-        !monaco ||
-        !MonacoAutoTypings ||
-        !editor
-      )
+        this.onError =
+            onError ??
+            (error => {
+                consoleImpl?.error?.(
+                    error,
+                );
+            });
+
+        this.projectBaseURL =
+            this.#normalizeBaseURL(
+                projectBaseURL,
+            );
+
+        this.cdnBaseURL =
+            new URLImpl(
+                String(cdnBaseURL),
+                this.projectBaseURL,
+            );
+
+        this.packageFilesBaseURL =
+            new URLImpl(
+                String(
+                    packageFilesBaseURL,
+                ),
+                this.projectBaseURL,
+            );
+
+        this.allowCdnFallback =
+            mode ===
+                'standaloneScript'
+                ? true
+                : (
+                    allowCdnFallback ??
+                    mode !== 'nodenext'
+                );
+
+        if (
+            mode ===
+            'standaloneScript'
+        ) {
+            this.nodeModulesBaseURL =
+                null;
+        } else if (
+            nodeModulesBaseURL ===
+            null
+        ) {
+            this.nodeModulesBaseURL =
+                null;
+        } else {
+            this.nodeModulesBaseURL =
+                new URLImpl(
+                    String(
+                        nodeModulesBaseURL ??
+                        './node_modules/',
+                    ),
+                    this.#asDirectoryURL(
+                        this.projectBaseURL,
+                    ),
+                );
+        }
+
+        this.cacheCycleLength =
+            normalizeCacheCycleLength(
+                cacheCycleLength,
+            );
+
+        this.cacheCycleMilliseconds =
+            cacheCycleToMilliseconds(
+                this.cacheCycleLength,
+            );
+
+        const detectedScope =
+            cacheScope ??
+            detectCurrentBaseId();
+
+        this.persistentModuleCache =
+            (
+                persistentModuleCache &&
+                detectedScope &&
+                cacheStorage &&
+                ResponseImpl
+            )
+                ? {
+                    scope:
+                        String(
+                            detectedScope,
+                        ),
+
+                    cacheName:
+                        `${moduleCacheName ?? detectedScope} `,
+
+                    storage:
+                        cacheStorage,
+
+                    Response:
+                        ResponseImpl,
+
+                    Blob:
+                        BlobImpl,
+
+                    promise:
+                        null,
+                }
+                : null;
+
+        this.monacoOptions = {
+            fileRoot:
+                monacoFileRoot,
+
+            sourceCache:
+                monacoSourceCache,
+
+            sourceResolver:
+                monacoSourceResolver,
+        };
+
+        this.monacoLoaders =
+            new Map();
+
+        this.monacoModels =
+            new Map();
+
+        this.monacoAliases =
+            Object.create(null);
+
+        if (
+            mode === 'monaco' &&
+            (
+                !monaco ||
+                !MonacoAutoTypings ||
+                !editor
+            )
+        ) {
+            throw new TypeError(
+                'monaco mode requires libs.monaco, libs.MonacoAutoTypings, and libs.editor',
+            );
+        }
+    }
+
+    /**
+     * Parse an npm-style package reference.
+     */
+    parsePackageReference(
+        value,
     ) {
-      throw new TypeError(
-        'monaco mode requires libs.monaco, libs.MonacoAutoTypings, and libs.editor',
-      );
+        const input =
+            String(value)
+                .replace(
+                    /^\/+/,
+                    '',
+                );
+
+        const match =
+            input.match(
+                /^(?<name>@[^/]+\/[^/@]+|[^/@]+)(?:@(?<version>[^/]+))?(?:\/(?<subpath>.*))?$/,
+            );
+
+        if (!match?.groups) {
+            throw new TypeError(
+                `Invalid package reference: ${value}`,
+            );
+        }
+
+        return {
+            name:
+                match.groups.name,
+
+            version:
+                match.groups.version,
+
+            subpath:
+                match.groups.subpath ||
+                '',
+        };
     }
-  }
-
-  /**
-   * Parse an npm-style package reference.
-   */
-  parsePackageReference(
-    value,
-  ) {
-    const input =
-      String(value)
-        .replace(
-          /^\/+/,
-          '',
-        );
-
-    const match =
-      input.match(
-        /^(?<name>@[^/]+\/[^/@]+|[^/@]+)(?:@(?<version>[^/]+))?(?:\/(?<subpath>.*))?$/,
-      );
-
-    if (!match?.groups) {
-      throw new TypeError(
-        `Invalid package reference: ${ value; } `,
-      );
-    }
-
-    return {
-      name:
-        match.groups.name,
-
-      version:
-        match.groups.version,
-
-      subpath:
-        match.groups.subpath ||
-        '',
-    };
-  }
 
   /**
    * Resolve a package reference, path, or URL.
@@ -1135,17 +1134,7 @@ export default class AutoTypings {
       'default';
 
     return new this.libs.URL(
-      `${
-            encodeURIComponent(
-                scope,
-            );
-        }/${;
-        kind;
-    }/${;
-encodeURIComponent(
-    key,
-)
-      }`,
+      `${encodeURIComponent(scope)}/${kind}/${encodeURIComponent(key)}`,
       'https://auto-typings.invalid/',
     ).href;
   }
@@ -1327,13 +1316,9 @@ encodeURIComponent(
 
     if (!response?.ok) {
       throw new Error(
-        `Failed to fetch cacheable module $ { sourceRequestURL; }: ${
-    response?.status ??
-        'unknown';
-} ${
-    response?.statusText ??
-        '';
-} `.trim(),
+        `Failed to fetch cacheable module ${sourceRequestURL}: ${
+          response?.status ?? 'unknown'
+        } ${response?.statusText ?? ''}`.trim(),
       );
     }
 
@@ -1462,21 +1447,9 @@ encodeURIComponent(
     } =
       resolved.packageRef;
 
-    return `${
-    name;
-}${
-    version
-        ? `@${version}`
-        : '';
-}${
-    subpath
-        ? `/${subpath}`
-        : '';
-}${
-    this.#meaningfulRuntimeQuery(
-        resolved.runtimeURL,
-    );
-} `;
+    return `${name}${version ? `@${version}` : ''}${
+      subpath ? `/${subpath}` : ''
+    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
   }
 
   #exactModuleCacheKey(
@@ -1496,21 +1469,9 @@ encodeURIComponent(
     } =
       resolved.packageRef;
 
-    return `${
-    name;
-} @${
-    exactVersion ??
-        version ??
-        'latest';
-}${
-    subpath
-        ? `/${subpath}`
-        : '';
-}${
-    this.#meaningfulRuntimeQuery(
-        resolved.runtimeURL,
-    );
-} `;
+    return `${name} @${exactVersion ?? version ?? 'latest'}${
+      subpath ? `/${subpath}` : ''
+    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
   }
 
   #meaningfulRuntimeQuery(
@@ -1567,7 +1528,7 @@ encodeURIComponent(
       );
     }
 
-    return `? ${ params; } `;
+    return `?${params}`;
   }
 
   #cacheableModuleSourceURL(
@@ -1651,11 +1612,7 @@ encodeURIComponent(
     const match =
       candidates.match(
         new RegExp(
-          `${
-    escapedName;
-} @(${
-    SEMVER_SOURCE;
-})`,
+          `${escapedName} @(${SEMVER_SOURCE})`,
           'i',
         ),
       );
@@ -1678,11 +1635,7 @@ encodeURIComponent(
       );
 
     const annotatedSource =
-      `${
-    rewrittenSource;
-} \n;//# sourceURL=${
-record.sourceURL
-      }\n`;
+      `${rewrittenSource}\n;//# sourceURL=${record.sourceURL}\n`;
 
     const BlobImpl =
       this.persistentModuleCache
@@ -1729,11 +1682,7 @@ record.sourceURL
     }
 
     const dataURL =
-      `data: text / javascript; charset = utf - 8, ${
-    encodeURIComponent(
-        annotatedSource,
-    );
-} `;
+      `data:text/javascript;charset=utf-8,${encodeURIComponent(annotatedSource)}`;
 
     try {
       return await this.libs.importModule(
@@ -1806,7 +1755,7 @@ record.sourceURL
           source,
         )
           ? source
-          : `${ source; }${ separator; } `;
+          : `${source}${separator}`;
 
       return this.#fileURLFromPath(
         directory,
@@ -2075,13 +2024,7 @@ record.sourceURL
     ) {
       const error =
         new Error(
-          `Cannot find package ${
-    JSON.stringify(
-        packageRef.name,
-    );
-} from ${
-    parentURL.href;
-} `,
+          `Cannot find package ${JSON.stringify(packageRef.name)} from ${parentURL.href}`,
         );
 
       error.code =
@@ -2117,21 +2060,9 @@ record.sourceURL
   ) {
     const packageKey =
       data.packageRef
-        ? `${
-    data.packageRef.name;
-} @${
-    data.packageRef
-        .version ??
-        data.installedVersion ??
-        '*';
-}${
-    data.packageRef
-        .subpath
-        ? `/${data.packageRef
-            .subpath
-        }`
-        : '';
-} `
+        ? `${data.packageRef.name} @${
+          data.packageRef.version ?? data.installedVersion ?? '*'
+        }${data.packageRef.subpath ? `/${data.packageRef.subpath}` : ''}`
         : data.runtimeURL;
 
     return Object.freeze({
@@ -2175,15 +2106,15 @@ record.sourceURL
     ) {
       const packageRoot =
         new this.libs.URL(
-          `${ ref.name; }/`,;
-nodeModulesRoot,
+          `${ref.name}/`,
+          nodeModulesRoot,
         );
 
-const packageJsonURL =
-    new this.libs.URL(
-        'package.json',
-        packageRoot,
-    );
+      const packageJsonURL =
+        new this.libs.URL(
+          'package.json',
+          packageRoot,
+        );
 
 const packageJson =
     await this.json(
