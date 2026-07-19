@@ -10,7 +10,6 @@
     "allowArbitraryExtensions": true,
     "allowUnreachableCode": true,
     "importHelpers": true,
-    "preserveValueImports": true,
     "esModuleInterop": true,
     "moduleDetection": "auto",
     "rewriteRelativeImportExtensions": true,
@@ -26,7 +25,6 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
-    "emitDeclarationOnly": true,
     "inlineSourceMap": true
   },
   "include": [
