@@ -24,32 +24,35 @@ export * from "./temp-storage/index.ts";
 export type * from "./types.ts";
 export * from "./url.ts";
 
+const Src = { Core, RemoteEsmImport, TempStorage };
 export {
+  Core,
+  RemoteEsmImport,
+  TempStorage,
+
   cache,
   converter,
-  Core,
   dtsGraph,
   jsdoc,
   markdown,
   monaco,
   network,
-  RemoteEsmImport,
-  TempStorage,
   types,
   url,
 };
 
+
 export default {
+  Src,
+  ...Src,
   cache,
   converter,
-  Core,
   dtsGraph,
   jsdoc,
   markdown,
   monaco,
   network,
-  RemoteEsmImport,
-  TempStorage,
+
   types,
   url,
   $import_meta: import.meta,
