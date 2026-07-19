@@ -1854,17 +1854,21 @@ var temp_storage_default = { getStorageQuota };
 var types_exports = /* @__PURE__ */ __exportAll({});
 //#endregion
 //#region src/index.ts
+const Src = {
+	Core: core_default,
+	RemoteEsmImport: importCdnPackageWithTypes,
+	TempStorage: temp_storage_default
+};
 var src_default = {
+	Src,
+	...Src,
 	cache: cache_exports,
 	converter: converter_exports,
-	Core: core_default,
 	dtsGraph: dtsGraph_exports,
 	jsdoc: jsdoc_exports,
 	markdown: markdown_exports,
 	monaco: monaco_exports,
 	network: network_exports,
-	RemoteEsmImport: importCdnPackageWithTypes,
-	TempStorage: temp_storage_default,
 	types: types_exports,
 	url: url_exports,
 	$import_meta: import.meta
