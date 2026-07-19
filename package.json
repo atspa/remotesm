@@ -10,7 +10,7 @@
     "index.ts",
     "src"
   ],
-  "main": "src/index.ts",
+  "main": "build/build.ts",
   "scripts": {
     "tsbundle": "node scripts/bundle.ts ts",
     "mjsbundle": "node scripts/bundle.ts mjs"
