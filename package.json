@@ -13,7 +13,8 @@
   "main": "build/build.ts",
   "scripts": {
     "tsbundle": "node scripts/bundle.ts ts",
-    "mjsbundle": "node scripts/bundle.ts mjs"
+    "mjsbundle": "node scripts/bundle.ts mjs",
+    "bundles": "node scripts/bundle.ts mjs && node scripts/bundle.ts ts"
   },
   "devDependencies": {
     "@opengsd/gsd-core": "^1.6.1",

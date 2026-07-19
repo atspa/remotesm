@@ -1134,19 +1134,10 @@ export class AutoTypings {
             'default';
 
         return new this.libs.URL(
-            `${encodeURIComponent(
-                scope,
-            );
-    }/${;
-kind;
-    }/${;
-encodeURIComponent(
-    key,
-)
-      }`,
-      'https://auto-typings.invalid/',
-    ).href;
-  }
+            `${encodeURIComponent(scope)}/${kind}/${encodeURIComponent(key)}`,
+            'https://auto-typings.invalid/',
+        ).href;
+    }
 
   async #readPersistentRecord(
     cache,
@@ -1325,7 +1316,9 @@ encodeURIComponent(
 
     if (!response?.ok) {
       throw new Error(
-        `Failed to fetch cacheable module $ { sourceRequestURL ?? response?.status ?? 'unknown' } ${ response?.statusText ?? '' } `.trim(),
+        `Failed to fetch cacheable module ${sourceRequestURL}: ${
+          response?.status ?? 'unknown'
+        } ${response?.statusText ?? ''}`.trim(),
       );
     }
 
@@ -1454,21 +1447,9 @@ encodeURIComponent(
     } =
       resolved.packageRef;
 
-    return `${
-    name;
-}${
-    version
-        ? `@${version}`
-        : '';
-}${
-    subpath
-        ? `/${subpath}`
-        : '';
-}${
-    this.#meaningfulRuntimeQuery(
-        resolved.runtimeURL,
-    );
-} `;
+    return `${name}${version ? `@${version}` : ''}${
+      subpath ? `/${subpath}` : ''
+    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
   }
 
   #exactModuleCacheKey(
@@ -1488,21 +1469,9 @@ encodeURIComponent(
     } =
       resolved.packageRef;
 
-    return `${
-    name;
-} @${
-    exactVersion ??
-        version ??
-        'latest';
-}${
-    subpath
-        ? `/${subpath}`
-        : '';
-}${
-    this.#meaningfulRuntimeQuery(
-        resolved.runtimeURL,
-    );
-} `;
+    return `${name} @${exactVersion ?? version ?? 'latest'}${
+      subpath ? `/${subpath}` : ''
+    }${this.#meaningfulRuntimeQuery(resolved.runtimeURL)}`;
   }
 
   #meaningfulRuntimeQuery(
@@ -1643,11 +1612,7 @@ encodeURIComponent(
     const match =
       candidates.match(
         new RegExp(
-          `${
-    escapedName;
-} @(${
-    SEMVER_SOURCE;
-})`,
+          `${escapedName} @(${SEMVER_SOURCE})`,
           'i',
         ),
       );
@@ -1670,11 +1635,7 @@ encodeURIComponent(
       );
 
     const annotatedSource =
-      `${
-    rewrittenSource;
-} \n;//# sourceURL=${
-record.sourceURL
-      }\n`;
+      `${rewrittenSource}\n;//# sourceURL=${record.sourceURL}\n`;
 
     const BlobImpl =
       this.persistentModuleCache
@@ -1721,11 +1682,7 @@ record.sourceURL
     }
 
     const dataURL =
-      `data: text / javascript; charset = utf - 8, ${
-    encodeURIComponent(
-        annotatedSource,
-    );
-} `;
+      `data:text/javascript;charset=utf-8,${encodeURIComponent(annotatedSource)}`;
 
     try {
       return await this.libs.importModule(
@@ -2066,13 +2023,7 @@ record.sourceURL
     ) {
       const error =
         new Error(
-          `Cannot find package ${
-    JSON.stringify(
-        packageRef.name,
-    );
-} from ${
-    parentURL.href;
-} `,
+          `Cannot find package ${JSON.stringify(packageRef.name)} from ${parentURL.href}`,
         );
 
       error.code =
@@ -2108,21 +2059,9 @@ record.sourceURL
   ) {
     const packageKey =
       data.packageRef
-        ? `${
-    data.packageRef.name;
-} @${
-    data.packageRef
-        .version ??
-        data.installedVersion ??
-        '*';
-}${
-    data.packageRef
-        .subpath
-        ? `/${data.packageRef
-            .subpath
-        }`
-        : '';
-} `
+        ? `${data.packageRef.name} @${
+          data.packageRef.version ?? data.installedVersion ?? '*'
+        }${data.packageRef.subpath ? `/${data.packageRef.subpath}` : ''}`
         : data.runtimeURL;
 
     return Object.freeze({
@@ -2166,15 +2105,15 @@ record.sourceURL
     ) {
       const packageRoot =
         new this.libs.URL(
-          `${ ref.name }/`,;
-nodeModulesRoot,
+          `${ref.name}/`,
+          nodeModulesRoot,
         );
 
-const packageJsonURL =
-    new this.libs.URL(
-        'package.json',
-        packageRoot,
-    );
+      const packageJsonURL =
+        new this.libs.URL(
+          'package.json',
+          packageRoot,
+        );
 
 const packageJson =
     await this.json(
