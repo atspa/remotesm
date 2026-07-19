@@ -29,7 +29,7 @@ export {
   Core,
   RemoteEsmImport,
   TempStorage,
-
+  Src,
   cache,
   converter,
   dtsGraph,
