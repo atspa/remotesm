@@ -7,6 +7,12 @@
       "node"
     ],
     "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
+    "allowUnreachableCode": true,
+    "importHelpers": true,
+    "preserveValueImports": true,
+    "esModuleInterop": true,
+    "moduleDetection": "auto",
     "rewriteRelativeImportExtensions": true,
     "resolveJsonModule": true,
     "resolvePackageJsonExports": true,
@@ -19,7 +25,9 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "emitDeclarationOnly": true,
+    "inlineSourceMap": true
   },
   "include": [
     "src/**/*.ts",
